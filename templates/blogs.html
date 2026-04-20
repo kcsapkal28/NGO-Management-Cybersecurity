@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="mb-5 text-center mt-5">
+    <div class="status-pulse mb-3"></div>
+    <h1 class="display-4 fw-bold text-white">Our Blog</h1>
+    <p class="fs-5 text-muted col-md-8 mx-auto">Stay updated with the latest news, stories, and impact reports from the field.</p>
+</div>
+
+<div class="row g-4 mb-5">
+    {% for blog in blogs %}
+    <div class="col-lg-4 col-md-6">
+        <div class="glossy-card h-100 d-flex flex-column overflow-hidden transition-all" style="transition: transform 0.3s ease;">
+            <!-- Blog Image -->
+            <div style="height: 200px; background: url('{{ blog.image }}') center/cover; position: relative;">
+                <div class="position-absolute w-100 h-100" style="background: linear-gradient(to top, rgba(5,7,10,0.8), transparent);"></div>
+            </div>
+            
+            <div class="p-4 d-flex flex-column flex-grow-1">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="badge" style="background: rgba(0, 209, 255, 0.1); color: var(--accent-blue); border: 1px solid rgba(0, 209, 255, 0.2);">Article</span>
+                    <small class="text-muted">{{ blog.date }}</small>
+                </div>
+                
+                <h4 class="fw-bold mb-3 text-white">{{ blog.title }}</h4>
+                <p class="text-muted flex-grow-1" style="font-size: 0.95rem; line-height: 1.6;">{{ blog.excerpt }}</p>
+                
+                <div class="mt-4 pt-3 border-top border-secondary border-opacity-25 d-flex align-items-center justify-content-between">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="rounded-circle" style="width: 32px; height: 32px; background: var(--accent-blue); display: flex; align-items: center; justify-content: center; color: #05070A; font-weight: bold; font-size: 0.8rem;">
+                            {{ blog.author[0] }}
+                        </div>
+                        <span class="text-white small fw-medium">{{ blog.author }}</span>
+                    </div>
+                    <a href="#" class="btn btn-sm btn-outline-glossy border-0 text-decoration-none">Read <span aria-hidden="true">&rarr;</span></a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<style>
+.glossy-card:hover {
+    transform: translateY(-5px);
+}
+</style>
+{% endblock %}

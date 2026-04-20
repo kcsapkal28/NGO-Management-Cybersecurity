@@ -1,27 +1,47 @@
 {% extends "base.html" %}
 {% block content %}
-<h2 class="mb-4">Browse Active Campaigns</h2>
-<div class="row">
+<div class="mb-5 text-center mt-4">
+    <div class="status-pulse mb-3"></div>
+    <h2 class="display-5 fw-bold text-white">Browse Active Campaigns</h2>
+</div>
+
+<div class="row g-4">
     {% for campaign in campaigns %}
-    <div class="col-md-6 mb-4">
-        <div class="card shadow-sm h-100">
-            <div class="card-body">
-                <h4>{{ campaign.title }}</h4>
-                <p>{{ campaign.description }}</p>
-                {% set percent = (campaign.raised_amount / campaign.goal_amount * 100) | round(2) %}
-                <div class="progress mb-2" style="height: 20px;">
-                    <div class="progress-bar bg-success" style="width: {{ percent if percent < 100 else 100 }}%">{{ percent }}%</div>
+    <div class="col-lg-4 col-md-6">
+        <div class="glossy-card h-100 d-flex flex-column p-4 transition-all" style="transition: transform 0.3s ease;">
+            <h4 class="fw-bold mb-3 text-white">{{ campaign.title }}</h4>
+            <p class="text-muted flex-grow-1" style="font-size: 0.95rem; line-height: 1.6;">{{ campaign.description }}</p>
+            
+            {% set percent = (campaign.raised_amount / campaign.goal_amount * 100) | round(2) %}
+            <div class="mt-4 pt-3 border-top border-secondary border-opacity-25">
+                <div class="d-flex justify-content-between align-items-end mb-2">
+                    <span class="text-muted small fw-medium">Funding Progress</span>
+                    <span class="fw-bold" style="color: var(--accent-blue);">{{ percent }}%</span>
                 </div>
-                <div class="d-flex justify-content-between text-muted">
-                    <span>Raised: <strong>${{ campaign.raised_amount }}</strong></span>
-                    <span>Goal: <strong>${{ campaign.goal_amount }}</strong></span>
+                <div class="progress progress-glossy mb-4">
+                    <div class="progress-bar progress-bar-glossy" style="width: {{ percent if percent < 100 else 100 }}%"></div>
                 </div>
-            </div>
-            <div class="card-footer bg-white text-end">
-                <a href="{{ url_for('donate', campaign_id=campaign.id) }}" class="btn btn-primary">Donate to Cause</a>
+                
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <div>
+                        <div class="text-white fw-bold fs-4">${{ campaign.raised_amount }}</div>
+                        <div class="text-muted small">Raised</div>
+                    </div>
+                    <div class="text-end">
+                        <div class="text-white opacity-75 fs-5">${{ campaign.goal_amount }}</div>
+                        <div class="text-muted small">Goal</div>
+                    </div>
+                </div>
+                <a href="{{ url_for('donate', campaign_id=campaign.id) }}" class="btn w-100 btn-outline-glossy text-decoration-none">Support this Cause</a>
             </div>
         </div>
     </div>
     {% endfor %}
 </div>
+
+<style>
+.glossy-card:hover {
+    transform: translateY(-5px);
+}
+</style>
 {% endblock %}

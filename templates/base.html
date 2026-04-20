@@ -2,24 +2,235 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hope Foundation NGO</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body class="bg-light">
+    <style>
+        :root {
+            --bg-navy: #05070A;
+            --accent-blue: #00D1FF;
+            --accent-dark: #0076FF;
+            --text-primary: #ffffff;
+            --text-muted: rgba(255, 255, 255, 0.6);
+        }
 
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
-  <div class="container">
-    <a class="navbar-brand" href="{{ url_for('index') }}">Hope Foundation</a>
-    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        body {
+            background-color: var(--bg-navy);
+            color: var(--text-primary);
+            font-family: 'Outfit', sans-serif;
+            position: relative;
+            overflow-x: hidden;
+            animation: pageLoad 0.4s ease-out forwards;
+            min-height: 100vh;
+        }
+
+        /* Mesh Gradient Background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: 
+                radial-gradient(circle at 15% 20%, rgba(0, 209, 255, 0.15), transparent 40%),
+                radial-gradient(circle at 85% 30%, rgba(0, 118, 255, 0.1), transparent 40%),
+                radial-gradient(circle at 50% 80%, rgba(0, 209, 255, 0.1), transparent 50%);
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        /* Glassmorphism 2.0 Cards */
+        .glossy-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid transparent;
+            background-clip: padding-box;
+            position: relative;
+            border-radius: 24px;
+        }
+
+        .glossy-card::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            border-radius: inherit;
+            padding: 1px;
+            background: linear-gradient(135deg, rgba(255,255,255,0.4), transparent);
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+        }
+
+        /* Glossy Buttons */
+        .btn-primary-glossy {
+            background: linear-gradient(180deg, #00D1FF 0%, #0076FF 100%);
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.5), 0 4px 15px rgba(0, 118, 255, 0.3);
+            font-weight: 600;
+            padding: 0.75rem 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary-glossy:hover {
+            transform: translateY(-2px);
+            box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.6), 0 6px 20px rgba(0, 118, 255, 0.5);
+            color: #fff;
+        }
+
+        .btn-outline-glossy {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            padding: 0.75rem 1.5rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .btn-outline-glossy:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Pulse Animation */
+        .status-pulse {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: var(--accent-blue);
+            box-shadow: 0 0 8px var(--accent-blue);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 209, 255, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(0, 209, 255, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 209, 255, 0); }
+        }
+
+        /* Page Load Transition */
+        @keyframes pageLoad {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Navbar Override */
+        .navbar-glossy {
+            background: rgba(5, 7, 10, 0.7) !important;
+            backdrop-filter: blur(15px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        /* Typography specifics */
+        .text-muted {
+            color: var(--text-muted) !important;
+        }
+        
+        .alert {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+        /* Page Load Transition */
+        @keyframes pageLoad {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Navbar Override */
+        .navbar-glossy {
+            background: rgba(5, 7, 10, 0.7) !important;
+            backdrop-filter: blur(15px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        /* Typography specifics */
+        .text-muted {
+            color: var(--text-muted) !important;
+        }
+        
+        .alert {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+
+        /* Shared Glossy Components */
+        .progress-glossy {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            height: 8px;
+            overflow: visible;
+        }
+        .progress-bar-glossy {
+            background: linear-gradient(90deg, #0076FF, #00D1FF);
+            border-radius: 20px;
+            position: relative;
+            box-shadow: 0 0 10px rgba(0, 209, 255, 0.5);
+        }
+        .progress-bar-glossy::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(180deg, rgba(255,255,255,0.3) 0%, transparent 100%);
+            border-radius: inherit;
+        }
+        
+        .form-control-glossy, .form-select-glossy {
+            background: rgba(255, 255, 255, 0.05) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            color: #fff !important;
+            border-radius: 12px;
+            padding: 0.8rem 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .form-control-glossy:focus, .form-select-glossy:focus {
+            background: rgba(255, 255, 255, 0.1) !important;
+            border-color: var(--accent-blue) !important;
+            box-shadow: 0 0 0 3px rgba(0, 209, 255, 0.25) !important;
+            color: #fff !important;
+            outline: none;
+        }
+
+        .form-control-glossy::placeholder {
+            color: rgba(255, 255, 255, 0.4) !important;
+        }
+        
+        .form-select-glossy option {
+            background: var(--bg-navy);
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-dark navbar-glossy mb-4 sticky-top">
+  <div class="container py-2">
+    <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="{{ url_for('index') }}">
+        <div class="status-pulse"></div>
+        Hope Foundation
+    </a>
+    <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
       <span class="navbar-toggler-icon"></span>
     </button>
     <div class="collapse navbar-collapse" id="navbarNav">
       <ul class="navbar-nav me-auto">
-        <li class="nav-item"><a class="nav-link" href="{{ url_for('campaigns') }}">Campaigns</a></li>
-        <li class="nav-item"><a class="nav-link btn btn-success text-white px-3 ms-2" href="{{ url_for('donate') }}">Donate Now</a></li>
+        <li class="nav-item"><a class="nav-link text-white" href="{{ url_for('campaigns') }}">Campaigns</a></li>
+        <li class="nav-item"><a class="nav-link text-white" href="{{ url_for('about') }}">About Us</a></li>
+        <li class="nav-item"><a class="nav-link text-white" href="{{ url_for('blogs') }}">Blogs</a></li>
       </ul>
-      <ul class="navbar-nav">
+      <ul class="navbar-nav align-items-center gap-2">
         {% if session.get('user_id') %}
             {% if session.get('is_admin') %}
                 <li class="nav-item"><a class="nav-link" href="{{ url_for('admin_dashboard') }}">Admin Panel</a></li>
@@ -30,18 +241,19 @@
         {% else %}
             <li class="nav-item"><a class="nav-link" href="{{ url_for('auth') }}">Login / Sign Up</a></li>
         {% endif %}
+        <li class="nav-item ms-lg-2 mt-2 mt-lg-0"><a class="btn btn-primary-glossy py-2 px-4 text-decoration-none" href="{{ url_for('donate') }}">Donate Now</a></li>
       </ul>
     </div>
   </div>
 </nav>
 
-<div class="container">
+<div class="container pb-5">
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         {% for category, message in messages %}
-          <div class="alert alert-{{ category }} alert-dismissible fade show">
+          <div class="alert alert-dismissible fade show rounded-4" role="alert">
             {{ message }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert"></button>
           </div>
         {% endfor %}
       {% endif %}

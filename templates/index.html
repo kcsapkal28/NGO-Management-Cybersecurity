@@ -1,31 +1,88 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="p-5 mb-4 bg-white rounded-3 shadow-sm text-center">
-    <h1 class="display-4 fw-bold">Make a Difference Today</h1>
-    <p class="col-md-8 mx-auto fs-4">Join our mission to provide resources, emergency relief, and hope to communities in need. Every contribution counts.</p>
-    <a href="{{ url_for('donate') }}" class="btn btn-primary btn-lg">Donate Now</a>
-    <a href="{{ url_for('campaigns') }}" class="btn btn-outline-secondary btn-lg">Explore Causes</a>
+<style>
+/* Index specific glossy components */
+.progress-glossy {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    height: 8px;
+    overflow: visible;
+}
+.progress-bar-glossy {
+    background: linear-gradient(90deg, #0076FF, #00D1FF);
+    border-radius: 20px;
+    position: relative;
+    box-shadow: 0 0 10px rgba(0, 209, 255, 0.5);
+}
+.progress-bar-glossy::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(180deg, rgba(255,255,255,0.3) 0%, transparent 100%);
+    border-radius: inherit;
+}
+</style>
+
+<!-- Hero Section with Image and Gradient Overlay -->
+<div class="hero-section rounded-4 overflow-hidden mb-5 position-relative" style="border: 1px solid rgba(255,255,255,0.1);">
+  <!-- Human-centric high-res imagery -->
+  <div class="position-absolute w-100 h-100" style="background: url('https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?q=80&w=2070&auto=format&fit=crop') center/cover; z-index: 1;"></div>
+  <!-- Dark-to-transparent gradient overlay -->
+  <div class="position-absolute w-100 h-100" style="background: linear-gradient(to bottom, rgba(5,7,10,0.3) 0%, rgba(5,7,10,1) 100%); z-index: 2;"></div>
+  
+  <div class="position-relative p-5 text-center d-flex flex-column justify-content-center align-items-center" style="z-index: 3; min-height: 450px;">
+    <h1 class="display-3 fw-bold mb-3 text-white" style="text-shadow: 0 4px 20px rgba(0,0,0,0.5);">Make a Difference Today</h1>
+    <p class="col-md-8 mx-auto fs-4 mb-5" style="color: rgba(255,255,255,0.85);">Join our mission to provide resources, emergency relief, and hope to communities in need. Every contribution counts.</p>
+    <div class="d-flex gap-3 justify-content-center flex-wrap">
+      <a href="{{ url_for('donate') }}" class="btn btn-primary-glossy btn-lg text-decoration-none">Donate Now</a>
+      <a href="{{ url_for('campaigns') }}" class="btn btn-outline-glossy btn-lg text-decoration-none">Explore Causes</a>
+    </div>
+  </div>
 </div>
 
-<h3 class="mb-3">Active Campaigns</h3>
-<div class="row">
+<div class="d-flex align-items-center mb-4 mt-5">
+    <div class="status-pulse me-3"></div>
+    <h2 class="mb-0 fw-bold">Active Campaigns</h2>
+</div>
+
+<!-- Bento-style layouts -->
+<div class="row g-4">
     {% for campaign in campaigns %}
-    <div class="col-md-4 mb-4">
-        <div class="card h-100 shadow-sm">
-            <div class="card-body">
-                <h5 class="card-title">{{ campaign.title }}</h5>
-                <p class="card-text text-muted">{{ campaign.description[:100] }}...</p>
-                {% set percent = (campaign.raised_amount / campaign.goal_amount * 100) | round(2) %}
-                <div class="progress mb-2">
-                    <div class="progress-bar bg-success" style="width: {{ percent }}%">{{ percent }}%</div>
+    <div class="col-lg-4 col-md-6">
+        <div class="glossy-card h-100 d-flex flex-column p-4 transition-all" style="transition: transform 0.3s ease;">
+            <h4 class="fw-bold mb-3 text-white">{{ campaign.title }}</h4>
+            <p class="text-muted flex-grow-1" style="font-size: 0.95rem; line-height: 1.6;">{{ campaign.description[:110] }}...</p>
+            
+            {% set percent = (campaign.raised_amount / campaign.goal_amount * 100) | round(2) %}
+            <div class="mt-4 pt-3 border-top border-secondary border-opacity-25">
+                <div class="d-flex justify-content-between align-items-end mb-2">
+                    <span class="text-muted small fw-medium">Funding Progress</span>
+                    <span class="fw-bold" style="color: var(--accent-blue);">{{ percent }}%</span>
                 </div>
-                <small class="text-muted">${{ campaign.raised_amount }} raised of ${{ campaign.goal_amount }}</small>
-            </div>
-            <div class="card-footer bg-white border-0">
-                <a href="{{ url_for('donate', campaign_id=campaign.id) }}" class="btn btn-sm btn-outline-primary w-100">Support this Cause</a>
+                <div class="progress progress-glossy mb-4">
+                    <div class="progress-bar progress-bar-glossy" style="width: {{ percent }}%"></div>
+                </div>
+                
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <div>
+                        <div class="text-white fw-bold fs-4">${{ campaign.raised_amount }}</div>
+                        <div class="text-muted small">Raised</div>
+                    </div>
+                    <div class="text-end">
+                        <div class="text-white opacity-75 fs-5">${{ campaign.goal_amount }}</div>
+                        <div class="text-muted small">Goal</div>
+                    </div>
+                </div>
+                <a href="{{ url_for('donate', campaign_id=campaign.id) }}" class="btn w-100 btn-outline-glossy text-decoration-none">Support this Cause</a>
             </div>
         </div>
     </div>
     {% endfor %}
 </div>
+
+<style>
+.glossy-card:hover {
+    transform: translateY(-5px);
+}
+</style>
 {% endblock %}

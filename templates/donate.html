@@ -1,60 +1,66 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-6">
-        <div class="card shadow-sm">
-            <div class="card-body">
-                <h2 class="text-center mb-4">Make a Donation</h2>
-                {% if not user %}
-                <div class="alert alert-info">You are checking out as a Guest. <a href="{{ url_for('auth') }}">Log in</a> to track your history.</div>
-                {% endif %}
-
-                <form id="donationForm">
-                    <div class="mb-3">
-                        <label class="form-label">Full Name</label>
-                        <input type="text" id="full_name" class="form-control" required value="{{ user.username if user else '' }}">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Email Address</label>
-                        <input type="email" id="email" class="form-control" required value="{{ user.email if user else '' }}">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Select Campaign (Optional)</label>
-                        <select id="campaign_id" class="form-select">
-                            <option value="">General Fund (No specific cause)</option>
-                            {% for campaign in campaigns %}
-                                <option value="{{ campaign.id }}" {% if selected_campaign == campaign.id|string %}selected{% endif %}>
-                                    {{ campaign.title }}
-                                </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Donation Type</label>
-                            <select id="donation_type" class="form-select">
-                                <option value="One-time">One-time</option>
-                                <option value="Monthly">Monthly</option>
-                                <option value="Yearly">Yearly</option>
-                            </select>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Amount ($)</label>
-                            <input type="number" id="amount" class="form-control" min="1" step="0.01" required>
-                        </div>
-                    </div>
-                    <div class="mb-4">
-                        <label class="form-label">Payment Method</label>
-                        <select id="payment_method" class="form-select">
-                            <option value="Credit Card">Credit / Debit Card</option>
-                            <option value="UPI">UPI</option>
-                            <option value="Net Banking">Net Banking</option>
-                            <option value="Wallet">Digital Wallet</option>
-                        </select>
-                    </div>
-                    <button type="submit" class="btn btn-success btn-lg w-100" id="submitBtn">Process Secure Payment</button>
-                </form>
+<div class="row justify-content-center mt-4">
+    <div class="col-lg-7 col-md-9">
+        <div class="glossy-card p-5">
+            <div class="text-center mb-4">
+                <div class="status-pulse mb-3"></div>
+                <h2 class="fw-bold text-white">Make a Donation</h2>
+                <p class="text-muted">Your generosity powers our mission.</p>
             </div>
+            
+            {% if not user %}
+            <div class="alert alert-info border-0 d-flex align-items-center" style="background: rgba(0, 209, 255, 0.1); color: var(--accent-blue);">
+                <span class="me-2 text-white">ℹ️</span>
+                You are checking out as a Guest. <a href="{{ url_for('auth') }}" class="ms-1 fw-bold text-white text-decoration-none">Log in</a> to track your history.
+            </div>
+            {% endif %}
+
+            <form id="donationForm" class="mt-4">
+                <div class="mb-4">
+                    <label class="form-label text-white small fw-medium">Full Name</label>
+                    <input type="text" id="full_name" class="form-control form-control-glossy" required value="{{ user.username if user else '' }}">
+                </div>
+                <div class="mb-4">
+                    <label class="form-label text-white small fw-medium">Email Address</label>
+                    <input type="email" id="email" class="form-control form-control-glossy" required value="{{ user.email if user else '' }}">
+                </div>
+                <div class="mb-4">
+                    <label class="form-label text-white small fw-medium">Select Campaign (Optional)</label>
+                    <select id="campaign_id" class="form-select form-select-glossy">
+                        <option value="">General Fund (No specific cause)</option>
+                        {% for campaign in campaigns %}
+                            <option value="{{ campaign.id }}" {% if selected_campaign == campaign.id|string %}selected{% endif %}>
+                                {{ campaign.title }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="row mb-4 g-3">
+                    <div class="col-md-6">
+                        <label class="form-label text-white small fw-medium">Donation Type</label>
+                        <select id="donation_type" class="form-select form-select-glossy">
+                            <option value="One-time">One-time</option>
+                            <option value="Monthly">Monthly</option>
+                            <option value="Yearly">Yearly</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-white small fw-medium">Amount ($)</label>
+                        <input type="number" id="amount" class="form-control form-control-glossy" min="1" step="0.01" required>
+                    </div>
+                </div>
+                <div class="mb-5">
+                    <label class="form-label text-white small fw-medium">Payment Method</label>
+                    <select id="payment_method" class="form-select form-select-glossy">
+                        <option value="Credit Card">Credit / Debit Card</option>
+                        <option value="UPI">UPI</option>
+                        <option value="Net Banking">Net Banking</option>
+                        <option value="Wallet">Digital Wallet</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary-glossy btn-lg w-100" id="submitBtn">Process Secure Payment</button>
+            </form>
         </div>
     </div>
 </div>
@@ -62,26 +68,28 @@
 <!-- On-Screen Receipt Popup Modal -->
 <div class="modal fade" id="receiptModal" data-bs-backdrop="static" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content text-center">
-      <div class="modal-header bg-success text-white justify-content-center">
-        <h5 class="modal-title">Payment Successful!</h5>
+    <div class="modal-content glossy-card border-0" style="background: rgba(5, 7, 10, 0.95);">
+      <div class="modal-header border-bottom border-secondary border-opacity-25 justify-content-center">
+        <h5 class="modal-title text-white fw-bold">Payment Successful!</h5>
       </div>
-      <div class="modal-body p-4">
-        <h1 class="display-1 text-success mb-3">✓</h1>
-        <h4>Thank you, <span id="r_name"></span>!</h4>
-        <p>Your generous contribution helps us immensely.</p>
-        <hr>
-        <ul class="list-unstyled text-start w-75 mx-auto">
-            <li><strong>Amount:</strong> $<span id="r_amount"></span></li>
-            <li><strong>Type:</strong> <span id="r_type"></span></li>
-            <li><strong>Transaction ID:</strong> <span id="r_txid"></span></li>
+      <div class="modal-body p-5 text-center">
+        <div class="rounded-circle mx-auto mb-4 d-flex align-items-center justify-content-center" style="width: 80px; height: 80px; background: rgba(0, 209, 255, 0.1); border: 2px solid var(--accent-blue);">
+            <h1 class="text-white m-0" style="color: var(--accent-blue) !important;">✓</h1>
+        </div>
+        <h4 class="text-white fw-bold">Thank you, <span id="r_name"></span>!</h4>
+        <p class="text-muted">Your generous contribution helps us immensely.</p>
+        <hr class="border-secondary opacity-25 my-4">
+        <ul class="list-unstyled text-start w-75 mx-auto text-white">
+            <li class="mb-2 d-flex justify-content-between"><span class="text-muted">Amount:</span> <strong class="fs-5">${...}</strong></li>
+            <li class="mb-2 d-flex justify-content-between"><span class="text-muted">Type:</span> <span id="r_type"></span></li>
+            <li class="mb-2 d-flex justify-content-between"><span class="text-muted">Txn ID:</span> <span id="r_txid" class="text-break text-end"></span></li>
         </ul>
-        <div class="alert alert-warning mt-3 small">
+        <div class="alert mt-4 small" style="background: rgba(255,255,255,0.05); color: var(--text-muted); border: 1px solid rgba(255,255,255,0.1);">
             <em>This is a simple confirmation, not a tax certificate. Registered users can view tax receipts in their dashboard.</em>
         </div>
       </div>
-      <div class="modal-footer justify-content-center">
-        <a href="{{ url_for('index') }}" class="btn btn-primary">Return Home</a>
+      <div class="modal-footer border-top border-secondary border-opacity-25 justify-content-center">
+        <a href="{{ url_for('index') }}" class="btn btn-outline-glossy w-100">Return Home</a>
       </div>
     </div>
   </div>
@@ -112,7 +120,8 @@ document.getElementById('donationForm').addEventListener('submit', function(e) {
         if(result.success) {
             // Populate Modal
             document.getElementById('r_name').innerText = result.receipt.name;
-            document.getElementById('r_amount').innerText = result.receipt.amount;
+            // Wait, we need to find the span in the amount strong tag
+            document.querySelector('.modal-body .fs-5').innerText = '$' + result.receipt.amount;
             document.getElementById('r_type').innerText = result.receipt.type;
             document.getElementById('r_txid').innerText = result.receipt.txid;
             

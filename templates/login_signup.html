@@ -1,31 +1,74 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="row justify-content-center">
+<style>
+/* Glossy Form Inputs */
+.form-control-glossy {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #fff;
+    border-radius: 12px;
+    padding: 0.8rem 1rem;
+    transition: all 0.3s ease;
+}
+
+.form-control-glossy:focus {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 3px rgba(0, 209, 255, 0.25);
+    color: #fff;
+    outline: none;
+}
+
+.form-control-glossy::placeholder {
+    color: rgba(255, 255, 255, 0.4);
+}
+</style>
+
+<div class="row justify-content-center mt-5">
     <!-- Login Form -->
-    <div class="col-md-5">
-        <div class="card shadow-sm mb-4">
-            <div class="card-body">
-                <h3 class="card-title text-center mb-4">Login</h3>
-                <form action="{{ url_for('login') }}" method="POST">
-                    <div class="mb-3"><input type="email" name="email" class="form-control" placeholder="Email Address" required></div>
-                    <div class="mb-3"><input type="password" name="password" class="form-control" placeholder="Password" required></div>
-                    <button type="submit" class="btn btn-primary w-100">Login</button>
-                </form>
+    <div class="col-lg-5 col-md-6 mb-4">
+        <div class="glossy-card p-4 h-100">
+            <div class="text-center mb-4">
+                <div class="status-pulse mb-3"></div>
+                <h3 class="fw-bold text-white">Welcome Back</h3>
+                <p class="text-muted small">Log in to your account</p>
             </div>
+            <form action="{{ url_for('login') }}" method="POST">
+                <div class="mb-4">
+                    <label class="form-label text-white small fw-medium">Email Address</label>
+                    <input type="email" name="email" class="form-control form-control-glossy w-100" placeholder="name@example.com" required>
+                </div>
+                <div class="mb-4">
+                    <label class="form-label text-white small fw-medium">Password</label>
+                    <input type="password" name="password" class="form-control form-control-glossy w-100" placeholder="••••••••" required>
+                </div>
+                <button type="submit" class="btn btn-primary-glossy w-100">Login</button>
+            </form>
         </div>
     </div>
+    
     <!-- Signup Form -->
-    <div class="col-md-5">
-        <div class="card shadow-sm">
-            <div class="card-body">
-                <h3 class="card-title text-center mb-4">Create Account</h3>
-                <form action="{{ url_for('signup') }}" method="POST">
-                    <div class="mb-3"><input type="text" name="username" class="form-control" placeholder="Username" required></div>
-                    <div class="mb-3"><input type="email" name="email" class="form-control" placeholder="Email Address" required></div>
-                    <div class="mb-3"><input type="password" name="password" class="form-control" placeholder="Password" required></div>
-                    <button type="submit" class="btn btn-success w-100">Sign Up</button>
-                </form>
+    <div class="col-lg-5 col-md-6 mb-4">
+        <div class="glossy-card p-4 h-100">
+            <div class="text-center mb-4">
+                <h3 class="fw-bold text-white">Create Account</h3>
+                <p class="text-muted small">Join our community today</p>
             </div>
+            <form action="{{ url_for('signup') }}" method="POST">
+                <div class="mb-4">
+                    <label class="form-label text-white small fw-medium">Username</label>
+                    <input type="text" name="username" class="form-control form-control-glossy w-100" placeholder="johndoe" required>
+                </div>
+                <div class="mb-4">
+                    <label class="form-label text-white small fw-medium">Email Address</label>
+                    <input type="email" name="email" class="form-control form-control-glossy w-100" placeholder="name@example.com" required>
+                </div>
+                <div class="mb-4">
+                    <label class="form-label text-white small fw-medium">Password</label>
+                    <input type="password" name="password" class="form-control form-control-glossy w-100" placeholder="••••••••" required>
+                </div>
+                <button type="submit" class="btn btn-outline-glossy w-100 border-opacity-50">Sign Up</button>
+            </form>
         </div>
     </div>
 </div>

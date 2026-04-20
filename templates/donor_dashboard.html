@@ -1,28 +1,31 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="row">
-    <div class="col-md-4">
-        <div class="card shadow-sm mb-4">
-            <div class="card-body">
-                <h4>My Profile</h4>
-                <p><strong>Username:</strong> {{ user.username }}</p>
-                <p><strong>Email:</strong> {{ user.email }}</p>
-                <p><strong>Member Since:</strong> {{ user.created_at.strftime('%Y-%m-%d') }}</p>
-            </div>
+<div class="mb-5 mt-4">
+    <div class="status-pulse me-2"></div>
+    <h2 class="d-inline fw-bold text-white">My Dashboard</h2>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-4">
+        <div class="glossy-card p-4">
+            <h4 class="fw-bold text-white mb-4">My Profile</h4>
+            <p class="text-muted mb-2"><strong class="text-white">Username:</strong> {{ user.username }}</p>
+            <p class="text-muted mb-2"><strong class="text-white">Email:</strong> {{ user.email }}</p>
+            <p class="text-muted mb-0"><strong class="text-white">Member Since:</strong> {{ user.created_at.strftime('%Y-%m-%d') }}</p>
         </div>
     </div>
-    <div class="col-md-8">
-        <div class="card shadow-sm">
-            <div class="card-body">
-                <h4>My Donation History</h4>
-                <table class="table table-striped mt-3">
-                    <thead>
+    <div class="col-lg-8">
+        <div class="glossy-card p-4">
+            <h4 class="fw-bold text-white mb-4">My Donation History</h4>
+            <div class="table-responsive">
+                <table class="table table-dark table-borderless table-hover">
+                    <thead style="border-bottom: 1px solid rgba(255,255,255,0.1);">
                         <tr>
-                            <th>Date</th>
-                            <th>Campaign</th>
-                            <th>Amount</th>
-                            <th>Type</th>
-                            <th>Status</th>
+                            <th class="text-muted fw-medium">Date</th>
+                            <th class="text-muted fw-medium">Campaign</th>
+                            <th class="text-muted fw-medium">Amount</th>
+                            <th class="text-muted fw-medium">Type</th>
+                            <th class="text-muted fw-medium">Status</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -30,12 +33,12 @@
                         <tr>
                             <td>{{ don.created_at.strftime('%Y-%m-%d') }}</td>
                             <td>{{ don.campaign.title if don.campaign else 'General Fund' }}</td>
-                            <td>${{ don.amount }}</td>
+                            <td class="fw-bold" style="color: var(--accent-blue);">${{ don.amount }}</td>
                             <td>{{ don.donation_type }}</td>
-                            <td><span class="badge bg-success">{{ don.status }}</span></td>
+                            <td><span class="badge" style="background: rgba(0, 209, 255, 0.1); color: var(--accent-blue); border: 1px solid rgba(0, 209, 255, 0.2);">{{ don.status }}</span></td>
                         </tr>
                         {% else %}
-                        <tr><td colspan="5" class="text-center">No donations found.</td></tr>
+                        <tr><td colspan="5" class="text-center text-muted py-4">No donations found.</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
