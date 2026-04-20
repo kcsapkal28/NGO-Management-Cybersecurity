@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="p-5 mb-4 bg-white rounded-3 shadow-sm text-center">
+    <h1 class="display-4 fw-bold">Make a Difference Today</h1>
+    <p class="col-md-8 mx-auto fs-4">Join our mission to provide resources, emergency relief, and hope to communities in need. Every contribution counts.</p>
+    <a href="{{ url_for('donate') }}" class="btn btn-primary btn-lg">Donate Now</a>
+    <a href="{{ url_for('campaigns') }}" class="btn btn-outline-secondary btn-lg">Explore Causes</a>
+</div>
+
+<h3 class="mb-3">Active Campaigns</h3>
+<div class="row">
+    {% for campaign in campaigns %}
+    <div class="col-md-4 mb-4">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">{{ campaign.title }}</h5>
+                <p class="card-text text-muted">{{ campaign.description[:100] }}...</p>
+                {% set percent = (campaign.raised_amount / campaign.goal_amount * 100) | round(2) %}
+                <div class="progress mb-2">
+                    <div class="progress-bar bg-success" style="width: {{ percent }}%">{{ percent }}%</div>
+                </div>
+                <small class="text-muted">${{ campaign.raised_amount }} raised of ${{ campaign.goal_amount }}</small>
+            </div>
+            <div class="card-footer bg-white border-0">
+                <a href="{{ url_for('donate', campaign_id=campaign.id) }}" class="btn btn-sm btn-outline-primary w-100">Support this Cause</a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

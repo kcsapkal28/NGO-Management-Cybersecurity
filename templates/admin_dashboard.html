@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 class="mb-4">Admin Executive Dashboard</h2>
+
+<!-- Admin Navigation -->
+<div class="mb-4">
+    <a href="{{ url_for('admin_campaigns') }}" class="btn btn-outline-primary">Manage Campaigns</a>
+    <a href="{{ url_for('admin_donors') }}" class="btn btn-outline-primary">Donor Database</a>
+    <a href="{{ url_for('admin_transactions') }}" class="btn btn-outline-primary">Transactions & Refunds</a>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-white bg-success shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">Total Funds Raised</h5>
+                <h2>${{ total_raised }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-info shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">Active Donors</h5>
+                <h2>{{ active_donors }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-primary shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">Active Campaigns</h5>
+                <h2>{{ active_campaigns }}</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<h4>Recent Transactions</h4>
+<table class="table table-bordered bg-white shadow-sm">
+    <thead class="table-dark">
+        <tr>
+            <th>Tx ID</th>
+            <th>Donor Name</th>
+            <th>Amount</th>
+            <th>Method</th>
+            <th>Date</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for tx in recent_transactions %}
+        <tr>
+            <td>{{ tx.transaction_id }}</td>
+            <td>{{ tx.full_name }}</td>
+            <td>${{ tx.amount }}</td>
+            <td>{{ tx.payment_method }}</td>
+            <td>{{ tx.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
