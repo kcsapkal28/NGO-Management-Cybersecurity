@@ -1,0 +1,192 @@
+:root {
+    --bg-main: #0B0F12; /* Deep earthy dark */
+    --bg-card: #141A1F;
+    --accent-green: #2B9348; /* Hopeful NGO Green */
+    --accent-green-hover: #007F5F;
+    --accent-orange: #E07A5F; /* Warmth/Action */
+    --text-main: #E9ECEF;
+    --text-muted: #8B9D96;
+}
+
+body {
+    background-color: var(--bg-main);
+    color: var(--text-main);
+    font-family: 'Outfit', sans-serif;
+    position: relative;
+    overflow-x: hidden;
+    animation: pageLoad 0.4s ease-out forwards;
+    min-height: 100vh;
+}
+
+/* Subtle ambient background instead of bright neon mesh */
+body::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; width: 100vw; height: 100vh;
+    background: 
+        radial-gradient(circle at 0% 0%, rgba(43, 147, 72, 0.03), transparent 40%),
+        radial-gradient(circle at 100% 100%, rgba(224, 122, 95, 0.03), transparent 40%);
+    z-index: -1;
+    pointer-events: none;
+}
+
+/* Grounded NGO Cards with Interactive Hover */
+.glossy-card {
+    background: var(--bg-card);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+    position: relative;
+}
+
+.glossy-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+    border-color: rgba(43, 147, 72, 0.3);
+}
+
+/* Solid NGO Buttons */
+.btn-primary-glossy {
+    background: var(--accent-green);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    padding: 0.75rem 1.5rem;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 10px rgba(43, 147, 72, 0.2);
+}
+
+.btn-primary-glossy:hover {
+    background: var(--accent-green-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(43, 147, 72, 0.4);
+    color: #fff;
+}
+
+.btn-outline-glossy {
+    background: transparent;
+    border: 2px solid var(--text-muted);
+    color: var(--text-main);
+    border-radius: 8px;
+    padding: 0.75rem 1.5rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.btn-outline-glossy:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #fff;
+    border-color: var(--text-main);
+    transform: translateY(-2px);
+}
+
+/* Interactive pulse for status */
+.status-pulse {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: var(--accent-orange);
+    box-shadow: 0 0 8px var(--accent-orange);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(224, 122, 95, 0.7); }
+    70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(224, 122, 95, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(224, 122, 95, 0); }
+}
+
+/* Page Load Transition */
+@keyframes pageLoad {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Navbar Override */
+.navbar-glossy {
+    background: var(--bg-main) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    transition: background-color 0.3s ease;
+}
+
+.navbar-brand {
+    color: var(--text-main) !important;
+}
+
+.nav-link {
+    transition: color 0.3s ease, transform 0.2s ease;
+    color: var(--text-muted) !important;
+    font-weight: 500;
+}
+
+.nav-link:hover {
+    color: var(--accent-green) !important;
+    transform: translateY(-1px);
+}
+
+/* Typography specifics */
+.text-muted {
+    color: var(--text-muted) !important;
+}
+
+.alert {
+    background: var(--bg-card);
+    border: none;
+    border-left: 4px solid var(--accent-green);
+    color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+/* Shared Components */
+.progress-glossy {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+    height: 10px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.02);
+}
+.progress-bar-glossy {
+    background: var(--accent-green);
+    border-radius: 10px;
+    position: relative;
+    transition: width 1s ease-in-out;
+}
+
+/* Form Inputs */
+.form-control-glossy, .form-select-glossy {
+    background: rgba(0, 0, 0, 0.2) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    color: #fff !important;
+    border-radius: 8px;
+    padding: 0.8rem 1rem;
+    transition: all 0.3s ease;
+}
+
+.form-control-glossy:focus, .form-select-glossy:focus {
+    background: rgba(0, 0, 0, 0.4) !important;
+    border-color: var(--accent-green) !important;
+    box-shadow: 0 0 0 3px rgba(43, 147, 72, 0.2) !important;
+    color: #fff !important;
+    outline: none;
+}
+
+.form-control-glossy::placeholder {
+    color: var(--text-muted) !important;
+}
+
+.form-select-glossy option {
+    background: var(--bg-card);
+    color: #fff;
+}
+
+/* Tables */
+.table-dark {
+    --bs-table-bg: transparent;
+    --bs-table-striped-bg: rgba(255,255,255,0.02);
+    --bs-table-hover-bg: rgba(255,255,255,0.03);
+    border-color: rgba(255,255,255,0.05);
+}
