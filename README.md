@@ -13,7 +13,7 @@ A robust, modular Non-Governmental Organization (NGO) management platform built 
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Python 3.8 or higher installed on your system.
+- Docker and Docker Compose installed.
 
 ### Installation & Setup
 
@@ -23,20 +23,29 @@ A robust, modular Non-Governmental Organization (NGO) management platform built 
    cd Cybersecurity-NGO-Management
    ```
 
-2. **Install Dependencies:**
-   It is recommended to use a virtual environment. Install the required packages using the generated `requirements.txt`:
+2. **Run with Docker (Recommended):**
+   The entire stack (App, Postgres, Prometheus, Grafana, Jaeger, ELK) is containerized.
    ```bash
-   pip install -r requirements.txt
+   docker-compose up -d --build
    ```
+   *The application will be accessible at `http://localhost:5001/`*
 
-3. **Run the Application:**
-   Start the development server. The SQLite database will be automatically created on the first run.
-   ```bash
-   python3 app.py
-   ```
-   *The application will be accessible at `http://127.0.0.1:5000/`*
+3. **Initialize Data:**
+   Visit `http://localhost:5001/admin/generate_dummy_data` to populate the database with test data.
 
 **Admin Setup Note**: The very first user to sign up on the platform is automatically granted Administrator privileges.
+
+---
+
+## 🛠 Observability Stack
+
+The platform includes a pre-configured observability stack accessible at the following ports:
+- **Grafana**: `http://localhost:3000` (User: `admin`, Pass: `admin`)
+- **Prometheus**: `http://localhost:9090`
+- **Jaeger (Tracing)**: `http://localhost:16686`
+- **Elasticsearch**: `http://localhost:9200`
+
+For a detailed breakdown of the system design, port mapping, and troubleshooting, refer to the [Architecture & Operations Guide](System-Reports/Architecture-Guide.md).
 
 ---
 

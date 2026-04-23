@@ -11,7 +11,7 @@ class User(db.Model):
     password = db.Column(db.String(255), nullable=False)
     
     # New Feature: Phone number for users
-    phone = db.Column(db.String(20), nullable=True) 
+    phone = db.Column(db.String(50), nullable=True) 
     
     is_admin = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

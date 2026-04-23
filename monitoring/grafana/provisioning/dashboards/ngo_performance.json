@@ -1,0 +1,180 @@
+{
+  "editable": true,
+  "graphTooltip": 1,
+  "panels": [
+    { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }, "id": 100, "title": "📊 Overview", "type": "row" },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus_ds" },
+      "fieldConfig": { "defaults": { "thresholds": { "steps": [{ "color": "green", "value": null }] } } },
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 1 }, "id": 1,
+      "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [{ "expr": "sum(flask_http_request_total)", "instant": true, "refId": "A" }],
+      "title": "Total Requests", "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus_ds" },
+      "fieldConfig": { "defaults": { "unit": "s", "thresholds": { "steps": [{ "color": "blue", "value": null }] } } },
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 1 }, "id": 2,
+      "options": { "colorMode": "value", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [{ "expr": "time() - process_start_time_seconds{job=\"flask_app\"}", "instant": true, "refId": "A" }],
+      "title": "App Uptime", "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus_ds" },
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100, "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 5 }] } } },
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 1 }, "id": 3,
+      "targets": [{ "expr": "sum(rate(flask_http_request_total{status!~\"2..\"}[5m])) / sum(rate(flask_http_request_total[5m])) * 100", "instant": true, "refId": "A" }],
+      "title": "Error Rate %", "type": "gauge"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus_ds" },
+      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "red" } } },
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 1 }, "id": 4,
+      "options": { "colorMode": "value", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [{ "expr": "sum(flask_http_request_total{status=~\"5..\"}) or vector(0)", "instant": true, "refId": "A" }],
+      "title": "Server Errors (5xx)", "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus_ds" },
+      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "yellow" } } },
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 1 }, "id": 5,
+      "options": { "colorMode": "value", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [{ "expr": "sum(flask_http_request_total{status=\"404\"}) or vector(0)", "instant": true, "refId": "A" }],
+      "title": "Not Found (404s)", "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus_ds" },
+      "fieldConfig": { "defaults": { "unit": "reqps", "thresholds": { "steps": [{ "color": "purple", "value": null }] } } },
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 1 }, "id": 6,
+      "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [{ "expr": "sum(rate(flask_http_request_total[1m]))", "instant": true, "refId": "A" }],
+      "title": "Request Rate", "type": "stat"
+    },
+    { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 }, "id": 101, "title": "⏱️ Latency & Traffic", "type": "row" },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus_ds" },
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 15, "gradientMode": "opacity", "lineInterpolation": "smooth", "lineWidth": 2, "showPoints": "never", "spanNulls": false } } },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 }, "id": 7,
+      "options": { "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        { "expr": "histogram_quantile(0.95, sum(rate(flask_http_request_duration_seconds_bucket[5m])) by (le))", "legendFormat": "P95", "refId": "A" },
+        { "expr": "histogram_quantile(0.50, sum(rate(flask_http_request_duration_seconds_bucket[5m])) by (le))", "legendFormat": "Median", "refId": "B" },
+        { "expr": "histogram_quantile(0.99, sum(rate(flask_http_request_duration_seconds_bucket[5m])) by (le))", "legendFormat": "P99", "refId": "C" }
+      ],
+      "title": "Request Latency (P50 / P95 / P99)", "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus_ds" },
+      "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "drawStyle": "bars", "fillOpacity": 80, "gradientMode": "hue", "stacking": { "mode": "normal" } } } },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 }, "id": 8,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [{ "expr": "sum(rate(flask_http_request_total[1m])) by (status)", "legendFormat": "HTTP {{status}}", "refId": "A" }],
+      "title": "Traffic by Status Code", "type": "timeseries"
+    },
+    { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 }, "id": 102, "title": "🖥️ System Resources", "type": "row" },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus_ds" },
+      "fieldConfig": { "defaults": { "unit": "bytes", "custom": { "drawStyle": "line", "fillOpacity": 25, "gradientMode": "scheme", "lineInterpolation": "smooth", "lineWidth": 2, "showPoints": "never" } } },
+      "gridPos": { "h": 7, "w": 8, "x": 0, "y": 15 }, "id": 9,
+      "options": { "legend": { "calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom" } },
+      "targets": [
+        { "expr": "process_resident_memory_bytes{job=\"flask_app\"}", "legendFormat": "RSS", "refId": "A" },
+        { "expr": "process_virtual_memory_bytes{job=\"flask_app\"}", "legendFormat": "Virtual", "refId": "B" }
+      ],
+      "title": "Memory Usage", "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus_ds" },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "custom": { "drawStyle": "line", "fillOpacity": 20, "gradientMode": "scheme", "lineInterpolation": "smooth", "lineWidth": 2, "showPoints": "never" } } },
+      "gridPos": { "h": 7, "w": 8, "x": 8, "y": 15 }, "id": 10,
+      "options": { "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom" } },
+      "targets": [{ "expr": "rate(process_cpu_seconds_total{job=\"flask_app\"}[5m])", "legendFormat": "CPU", "refId": "A" }],
+      "title": "CPU Usage", "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus_ds" },
+      "fieldConfig": { "defaults": { "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 800 }, { "color": "red", "value": 1000 }] } } },
+      "gridPos": { "h": 7, "w": 4, "x": 16, "y": 15 }, "id": 11,
+      "options": { "colorMode": "background", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [{ "expr": "process_open_fds{job=\"flask_app\"}", "instant": true, "refId": "A" }],
+      "title": "Open File Descriptors", "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus_ds" },
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "gridPos": { "h": 7, "w": 4, "x": 20, "y": 15 }, "id": 12,
+      "options": { "showHeader": true, "cellHeight": "sm" },
+      "targets": [{ "expr": "sort_desc(sum by (method, status) (rate(flask_http_request_duration_seconds_sum[5m])) / sum by (method, status) (rate(flask_http_request_duration_seconds_count[5m])))", "format": "table", "instant": true, "refId": "A" }],
+      "title": "Avg Response Time", "type": "table"
+    },
+    { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 22 }, "id": 103, "title": "🕵️ Jaeger Tracing", "type": "row" },
+    {
+      "datasource": { "type": "jaeger", "uid": "jaeger_ds" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 23 }, "id": 13,
+      "targets": [{ "query": "ngo-management-app", "queryType": "search", "refId": "A", "service": "ngo-management-app", "limit": 20 }],
+      "title": "Recent Traces — ngo-management-app", "type": "traces"
+    },
+    {
+      "datasource": { "type": "jaeger", "uid": "jaeger_ds" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 31 }, "id": 14,
+      "targets": [{ "query": "ngo-management-app", "queryType": "search", "refId": "A", "service": "ngo-management-app", "operation": "SELECT ngo_db", "limit": 10 }],
+      "title": "DB SELECT Traces", "type": "traces"
+    },
+    {
+      "datasource": { "type": "jaeger", "uid": "jaeger_ds" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 31 }, "id": 15,
+      "targets": [{ "query": "ngo-management-app", "queryType": "search", "refId": "A", "service": "ngo-management-app", "operation": "INSERT ngo_db", "limit": 10 }],
+      "title": "DB INSERT Traces", "type": "traces"
+    },
+    { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 39 }, "id": 104, "title": "📜 Logs (Fluentd → Elasticsearch)", "type": "row" },
+    {
+      "datasource": { "type": "elasticsearch", "uid": "elasticsearch_ds" },
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 40 }, "id": 16,
+      "targets": [{ "bucketAggs": [{ "field": "@timestamp", "id": "2", "settings": { "interval": "1m" }, "type": "date_histogram" }], "metrics": [{ "id": "1", "type": "count" }], "query": "*", "refId": "A", "timeField": "@timestamp" }],
+      "title": "Log Volume Over Time", "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "elasticsearch", "uid": "elasticsearch_ds" },
+      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "red" } } },
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 40 }, "id": 17,
+      "options": { "colorMode": "value", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [{ "bucketAggs": [], "metrics": [{ "id": "1", "type": "count" }], "query": "log:error OR log:ERROR OR log:critical", "refId": "A", "timeField": "@timestamp" }],
+      "title": "Error Log Count", "type": "stat"
+    },
+    {
+      "datasource": { "type": "elasticsearch", "uid": "elasticsearch_ds" },
+      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "orange" } } },
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 40 }, "id": 18,
+      "options": { "colorMode": "value", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [{ "bucketAggs": [], "metrics": [{ "id": "1", "type": "count" }], "query": "log:WARNING OR log:warn", "refId": "A", "timeField": "@timestamp" }],
+      "title": "Warning Log Count", "type": "stat"
+    },
+    {
+      "datasource": { "type": "elasticsearch", "uid": "elasticsearch_ds" },
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 46 }, "id": 19,
+      "targets": [{ "bucketAggs": [{ "field": "source.keyword", "id": "3", "settings": { "order": "desc", "orderBy": "_count", "size": "10" }, "type": "terms" }], "metrics": [{ "id": "1", "type": "count" }], "query": "*", "refId": "A", "timeField": "@timestamp" }],
+      "title": "Logs by Source (stdout vs stderr)", "type": "barchart"
+    },
+    {
+      "datasource": { "type": "elasticsearch", "uid": "elasticsearch_ds" },
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 46 }, "id": 20,
+      "targets": [{ "bucketAggs": [{ "field": "@log_name.keyword", "id": "3", "settings": { "order": "desc", "orderBy": "_count", "size": "10" }, "type": "terms" }], "metrics": [{ "id": "1", "type": "count" }], "query": "*", "refId": "A", "timeField": "@timestamp" }],
+      "title": "Logs by Tag", "type": "piechart"
+    },
+    {
+      "datasource": { "type": "elasticsearch", "uid": "elasticsearch_ds" },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 52 }, "id": 21,
+      "options": { "showTime": true, "sortOrder": "Descending", "enableLogDetails": true, "wrapLogMessage": true, "dedupStrategy": "none" },
+      "targets": [{ "metrics": [{ "id": "1", "type": "logs", "settings": { "limit": "500" } }], "query": "*", "refId": "A", "timeField": "@timestamp" }],
+      "title": "Live Application Logs", "type": "logs"
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["ngo", "flask", "monitoring"],
+  "time": { "from": "now-1h", "to": "now" },
+  "title": "NGO Super-Dashboard",
+  "uid": "ngo_super_dashboard",
+  "version": 4
+}
