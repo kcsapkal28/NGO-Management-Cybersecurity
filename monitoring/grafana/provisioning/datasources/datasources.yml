@@ -19,7 +19,6 @@ datasources:
     uid: elasticsearch_ds
     access: proxy
     url: http://elasticsearch:9200
-    database: "[fluentd-]YYYY.MM.DD"
+    database: "fluentd-*"
     jsonData:
       timeField: "@timestamp"
-      interval: "Daily"
