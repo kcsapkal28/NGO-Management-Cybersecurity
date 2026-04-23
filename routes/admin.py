@@ -18,7 +18,7 @@ def init_admin_routes(app):
         top_donors = db.session.query(
             Donation.full_name, 
             db.func.sum(Donation.amount).label('total_donated')
-        ).group_by(Donation.email).order_by(db.desc('total_donated')).limit(5).all()
+        ).group_by(Donation.email, Donation.full_name).order_by(db.desc('total_donated')).limit(5).all()
 
         return render_template('admin_dashboard.html', 
                                total_raised=total_raised, 
@@ -83,7 +83,7 @@ def init_admin_routes(app):
             db.func.count(Donation.id).label('donation_count'),
             db.func.sum(Donation.amount).label('total_donated'),
             db.func.min(Donation.created_at).label('first_donation')
-        ).group_by(Donation.email).order_by(db.desc('total_donated')).paginate(page=page, per_page=20)
+        ).group_by(Donation.email, Donation.full_name).order_by(db.desc('total_donated')).paginate(page=page, per_page=20)
         return render_template('admin_donors.html', donors=donors.items, pagination=donors)
 
     @app.route('/admin/transactions')
