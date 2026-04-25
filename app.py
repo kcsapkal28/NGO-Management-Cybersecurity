@@ -16,10 +16,12 @@ from opentelemetry.sdk.resources import Resource, SERVICE_NAME
 
 app = Flask(__name__)
 
+import sys
+
 # --- Setup Structured Logging ---
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
-logHandler = logging.StreamHandler()
+logHandler = logging.StreamHandler(sys.stdout)
 formatter = jsonlogger.JsonFormatter(
     '%(asctime)s %(levelname)s %(name)s %(message)s'
 )
@@ -73,15 +75,6 @@ with app.app_context():
 
 # --- Register Routes ---
 from routes import register_all_routes
-@app.route('/test-logs')
-def test_logs():
-    import logging
-    logger = logging.getLogger()
-    logger.info("This is a test INFO log.")
-    logger.warning("This is a test WARNING log. Someone is poking around.")
-    logger.error("This is a test ERROR log. The database is theoretically on fire.")
-    logger.critical("This is a test CRITICAL log. System meltdown.")
-    return "Test logs fired!", 200
 register_all_routes(app)
 
 if __name__ == '__main__':

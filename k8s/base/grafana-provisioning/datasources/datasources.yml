@@ -1,0 +1,24 @@
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    uid: prometheus_ds
+    access: proxy
+    url: http://prometheus-service:9090
+    isDefault: true
+
+  - name: Jaeger
+    type: jaeger
+    uid: jaeger_ds
+    access: proxy
+    url: http://jaeger-service:16686
+
+  - name: Elasticsearch
+    type: elasticsearch
+    uid: elasticsearch_ds
+    access: proxy
+    url: http://elasticsearch-service:9200
+    database: "fluentd-*"
+    jsonData:
+      timeField: "@timestamp"

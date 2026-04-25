@@ -65,37 +65,6 @@
     </div>
 </div>
 
-<!-- On-Screen Receipt Popup Modal -->
-<div class="modal fade" id="receiptModal" data-bs-backdrop="static" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content glossy-card border-0" style="background: rgba(5, 7, 10, 0.95);">
-      <div class="modal-header border-bottom border-secondary border-opacity-25 justify-content-center">
-        <h5 class="modal-title text-white fw-bold">Payment Successful!</h5>
-      </div>
-      <div class="modal-body p-5 text-center">
-        <div class="mx-auto mb-4 d-flex align-items-center justify-content-center" style="width: 120px; height: 120px;">
-            <!-- Google Noto Emoji Check Mark Lottie -->
-            <lottie-player src="https://fonts.gstatic.com/s/e/notoemoji/latest/2705/lottie.json" background="transparent" speed="1" style="width: 120px; height: 120px;" autoplay></lottie-player>
-        </div>
-        <h4 class="text-white fw-bold">Thank you, <span id="r_name"></span>!</h4>
-        <p class="text-muted">Your generous contribution helps us immensely.</p>
-        <hr class="border-secondary opacity-25 my-4">
-        <ul class="list-unstyled text-start w-75 mx-auto text-white">
-            <li class="mb-2 d-flex justify-content-between"><span class="text-muted">Amount:</span> <strong class="fs-5">${...}</strong></li>
-            <li class="mb-2 d-flex justify-content-between"><span class="text-muted">Type:</span> <span id="r_type"></span></li>
-            <li class="mb-2 d-flex justify-content-between"><span class="text-muted">Txn ID:</span> <span id="r_txid" class="text-break text-end"></span></li>
-        </ul>
-        <div class="alert mt-4 small" style="background: rgba(255,255,255,0.05); color: var(--text-muted); border: 1px solid rgba(255,255,255,0.1);">
-            <em>This is a simple confirmation, not a tax certificate. Registered users can view tax receipts in their dashboard.</em>
-        </div>
-      </div>
-      <div class="modal-footer border-top border-secondary border-opacity-25 justify-content-center">
-        <a href="{{ url_for('index') }}" class="btn btn-outline-glossy w-100">Return Home</a>
-      </div>
-    </div>
-  </div>
-</div>
-
 <script>
 document.getElementById('donationForm').addEventListener('submit', function(e) {
     e.preventDefault();
@@ -116,13 +85,15 @@ document.getElementById('donationForm').addEventListener('submit', function(e) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) throw new Error('Network response was not ok');
+        return response.json();
+    })
     .then(result => {
         if(result.success) {
             // Populate Modal
             document.getElementById('r_name').innerText = result.receipt.name;
-            // Wait, we need to find the span in the amount strong tag
-            document.querySelector('.modal-body .fs-5').innerText = '$' + result.receipt.amount;
+            document.getElementById('r_amount').innerText = '$' + result.receipt.amount;
             document.getElementById('r_type').innerText = result.receipt.type;
             document.getElementById('r_txid').innerText = result.receipt.txid;
             
@@ -131,10 +102,50 @@ document.getElementById('donationForm').addEventListener('submit', function(e) {
             myModal.show();
         } else {
             alert('Payment failed: ' + result.message);
-            document.getElementById('submitBtn').innerText = "Process Secure Payment";
-            document.getElementById('submitBtn').disabled = false;
         }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An unexpected error occurred. Please try again.');
+    })
+    .finally(() => {
+        document.getElementById('submitBtn').innerText = "Process Secure Payment";
+        document.getElementById('submitBtn').disabled = false;
     });
 });
 </script>
+{% endblock %}
+
+{% block modals %}
+{{ super() }}
+<!-- On-Screen Receipt Popup Modal -->
+<div class="modal fade" id="receiptModal" data-bs-backdrop="static" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content glossy-card border-0" style="background: rgba(5, 7, 10, 0.95);">
+      <div class="modal-header border-bottom border-secondary border-opacity-25 justify-content-center">
+        <h5 class="modal-title text-white fw-bold">Payment Successful!</h5>
+      </div>
+      <div class="modal-body p-5 text-center">
+        <div class="mx-auto mb-4 d-flex align-items-center justify-content-center" style="width: 120px; height: 120px;">
+            <!-- Google Noto Emoji Check Mark Lottie -->
+            <lottie-player src="https://fonts.gstatic.com/s/e/notoemoji/latest/2705/lottie.json" background="transparent" speed="1" style="width: 120px; height: 120px;" autoplay></lottie-player>
+        </div>
+        <h4 class="text-white fw-bold">Thank you, <span id="r_name"></span>!</h4>
+        <p class="text-muted">Your generous contribution helps us immensely.</p>
+        <hr class="border-secondary opacity-25 my-4">
+        <ul class="list-unstyled text-start w-75 mx-auto text-white">
+            <li class="mb-2 d-flex justify-content-between"><span class="text-muted">Amount:</span> <strong id="r_amount" class="fs-5">$0.00</strong></li>
+            <li class="mb-2 d-flex justify-content-between"><span class="text-muted">Type:</span> <span id="r_type"></span></li>
+            <li class="mb-2 d-flex justify-content-between"><span class="text-muted">Txn ID:</span> <span id="r_txid" class="text-break text-end"></span></li>
+        </ul>
+        <div class="alert mt-4 small" style="background: rgba(255,255,255,0.05); color: var(--text-muted); border: 1px solid rgba(255,255,255,0.1);">
+            <em>This is a simple confirmation, not a tax certificate. Registered users can view tax receipts in their dashboard.</em>
+        </div>
+      </div>
+      <div class="modal-footer border-top border-secondary border-opacity-25 justify-content-center">
+        <a href="{{ url_for('index') }}" class="btn btn-outline-glossy w-100">Return Home</a>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}
