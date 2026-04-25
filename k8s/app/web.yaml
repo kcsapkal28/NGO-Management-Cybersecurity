@@ -1,0 +1,65 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-service
+spec:
+  type: NodePort
+  ports:
+    - port: 5001
+      targetPort: 5001
+      nodePort: 30001
+  selector:
+    app: web
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      initContainers:
+        - name: wait-for-db
+          image: ngo-web-app:latest
+          imagePullPolicy: Never
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              echo "Waiting for database to be ready..."
+              until python -c "import os, sqlalchemy; sqlalchemy.create_engine(os.environ['DATABASE_URL']).connect()"; do
+                echo "Retrying..."
+                sleep 2
+              done
+              echo "Database ready. Initializing tables..."
+              python -c "from app import app, db; app.app_context().push(); db.create_all()"
+          envFrom:
+            - configMapRef:
+                name: app-config
+      containers:
+        - name: web
+          image: ngo-web-app:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 5001
+          envFrom:
+            - configMapRef:
+                name: app-config
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 5001
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 5001
+            initialDelaySeconds: 5
+            periodSeconds: 5

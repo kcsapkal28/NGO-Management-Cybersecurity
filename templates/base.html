@@ -44,7 +44,7 @@
   </div>
 </nav>
 
-<div class="container pb-5">
+<div class="container pb-5 reveal">
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         {% for category, message in messages %}
@@ -59,6 +59,7 @@
     {% block content %}{% endblock %}
 </div>
 
+{% block modals %}
 <!-- Auth Modal -->
 <div class="modal fade" id="authModal" tabindex="-1" aria-labelledby="authModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
@@ -120,6 +121,7 @@
     </div>
   </div>
 </div>
+{% endblock %}
 
 <script>
 function toggleAuth(type) {

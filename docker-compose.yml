@@ -7,15 +7,18 @@ services:
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/ngo_db
       - JAEGER_HOST=jaeger
+      - JAEGER_SERVICE_NAME=ngo-management-app # <--- FIXED: Matches Grafana dashboard query
     volumes:
       - .:/app
     depends_on:
-      - db
-      - fluentd
+      db:
+        condition: service_started
+      fluentd:
+        condition: service_healthy # <--- FIXED: Wait for Fluentd to actually be ready
     logging:
       driver: "fluentd"
       options:
-        fluentd-address: "127.0.0.1:24224"
+        fluentd-address: "localhost:24224" # <--- FIXED: More reliable than 127.0.0.1 for Docker daemon
         fluentd-async: "true"
         tag: "flask.web"
 
@@ -37,6 +40,11 @@ services:
       - xpack.security.enabled=false
     ports:
       - "9200:9200"
+    healthcheck: # <--- ADDED: To ensure ES is ready for Fluentd and Jaeger
+      test: ["CMD-SHELL", "curl -s http://localhost:9200 >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   fluentd:
     build: ./monitoring/fluentd
@@ -48,7 +56,13 @@ services:
       - "24224:24224"
       - "24224:24224/udp"
     depends_on:
-      - elasticsearch
+      elasticsearch:
+        condition: service_healthy # <--- FIXED: Don't start Fluentd until ES is ready
+    healthcheck: # <--- ADDED: To ensure Fluentd is listening before web starts
+      test: ["CMD-SHELL", "netstat -an | grep 24224 > /dev/null; if [ 0 != $$? ]; then exit 1; fi;"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   prometheus:
     image: prom/prometheus:latest
@@ -60,7 +74,7 @@ services:
       - "--config.file=/etc/prometheus/prometheus.yml"
 
   grafana:
-    image: grafana/grafana:9.5.18
+    image: grafana/grafana:latest
     ports:
       - "3000:3000"
     environment:
@@ -75,6 +89,11 @@ services:
     image: jaegertracing/all-in-one:latest
     environment:
       - COLLECTOR_ZIPKIN_HOST_PORT=:9411
+      - SPAN_STORAGE_TYPE=elasticsearch          # <--- FIXED: Tell Jaeger to use Elasticsearch
+      - ES_SERVER_URLS=http://elasticsearch:9200 # <--- FIXED: Point Jaeger to ES container
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
     ports:
       - "16686:16686"
       - "9411:9411"
