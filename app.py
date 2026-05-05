@@ -1,6 +1,7 @@
 import os
 import logging
 from flask import Flask
+from extensions import csrf, limiter
 from models import db
 from pythonjsonlogger import jsonlogger
 
@@ -51,18 +52,35 @@ FlaskInstrumentor().instrument_app(app)
 metrics = PrometheusMetrics(app)
 metrics.info('app_info', 'Application info', version='1.0.0')
 
-app.secret_key = os.environ.get('SECRET_KEY', 'default_static_secret_key_for_dev')
-
 # --- Configuration ---
 from dotenv import load_dotenv
 load_dotenv()
 
+secret_key = os.environ.get('SECRET_KEY')
+if not secret_key:
+    raise RuntimeError(
+        "SECRET_KEY environment variable is required. "
+        "Generate one with: python -c 'import secrets; print(secrets.token_hex(32))'"
+    )
+app.secret_key = secret_key
+
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE='Lax',
+    SESSION_COOKIE_SECURE=os.environ.get('SESSION_COOKIE_SECURE', 'false').lower() == 'true',
+    PERMANENT_SESSION_LIFETIME=60 * 60 * 8,
+    WTF_CSRF_TIME_LIMIT=None,
+)
+
 base_dir = os.path.abspath(os.path.dirname(__file__))
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
-    'DATABASE_URL', 
+    'DATABASE_URL',
     'sqlite:///' + os.path.join(base_dir, 'ngo_database.db')
 )
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+csrf.init_app(app)
+limiter.init_app(app)
 
 db.init_app(app)
 
@@ -76,6 +94,22 @@ with app.app_context():
 # --- Register Routes ---
 from routes import register_all_routes
 register_all_routes(app)
+
+# --- CLI: promote-admin ---
+import click
+from models import User
+
+@app.cli.command("promote-admin")
+@click.argument("email")
+def promote_admin(email):
+    """Grant admin to the user with the given email."""
+    user = User.query.filter_by(email=email.lower().strip()).first()
+    if not user:
+        click.echo(f"No user found with email {email}")
+        raise SystemExit(1)
+    user.is_admin = True
+    db.session.commit()
+    click.echo(f"Promoted {user.email} to admin.")
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001, debug=False)

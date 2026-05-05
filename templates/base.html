@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Hope Foundation NGO</title>
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -77,6 +78,7 @@
                 <p class="text-muted small">Log in to your account</p>
             </div>
             <form action="{{ url_for('login') }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="mb-4">
                     <label class="form-label text-white small fw-medium">Email Address</label>
                     <input type="email" name="email" class="form-control form-control-glossy w-100" placeholder="name@example.com" required>
@@ -98,6 +100,7 @@
                 <p class="text-muted small">Join our community today</p>
             </div>
             <form action="{{ url_for('signup') }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="mb-4">
                     <label class="form-label text-white small fw-medium">Username</label>
                     <input type="text" name="username" class="form-control form-control-glossy w-100" placeholder="johndoe" required>

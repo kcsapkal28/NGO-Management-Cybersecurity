@@ -1,7 +1,10 @@
 import os
 from flask import render_template, request, jsonify, session
+from extensions import limiter
 from models import db, User, Campaign, Donation
 from utils import login_required
+
+MAX_DONATION_AMOUNT = 100_000.0
 
 def init_donor_routes(app):
     @app.route('/campaigns')
@@ -17,12 +20,17 @@ def init_donor_routes(app):
         return render_template('donate.html', user=user_data, campaigns=campaigns, selected_campaign=selected_cid)
 
     @app.route('/api/process_payment', methods=['POST'])
+    @limiter.limit("10 per minute; 50 per hour")
     def process_payment():
-        data = request.get_json()
+        if 'user_id' not in session:
+            return jsonify({'success': False, 'message': 'Authentication required.'}), 401
+        data = request.get_json(silent=True) or {}
         try:
             amount = float(data.get('amount', 0))
             if amount <= 0:
                 return jsonify({'success': False, 'message': 'Amount must be greater than zero.'}), 400
+            if amount > MAX_DONATION_AMOUNT:
+                return jsonify({'success': False, 'message': f'Amount exceeds the per-transaction limit of ${MAX_DONATION_AMOUNT:,.2f}.'}), 400
                 
             campaign_id = data.get('campaign_id')
             campaign_id = int(campaign_id) if campaign_id else None
@@ -35,16 +43,21 @@ def init_donor_routes(app):
                 if not campaign.is_active:
                     return jsonify({'success': False, 'message': 'Campaign is no longer active.'}), 400
 
+            current_user = User.query.get(session['user_id'])
+            if not current_user:
+                session.clear()
+                return jsonify({'success': False, 'message': 'Session expired.'}), 401
+
             new_donation = Donation(
-                user_id=session.get('user_id'),
+                user_id=current_user.id,
                 campaign_id=campaign_id,
-                full_name=data.get('full_name', '').strip(),
-                email=data.get('email', '').strip().lower(),
+                full_name=current_user.username,
+                email=current_user.email,
                 amount=round(amount, 2),
                 donation_type=data.get('donation_type', 'One-time'),
                 payment_method=data.get('payment_method', 'Credit Card'),
                 transaction_id="TXN" + os.urandom(8).hex().upper(),
-                status='Completed' 
+                status='Completed'
             )
             db.session.add(new_donation)
             

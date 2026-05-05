@@ -9,7 +9,10 @@
         <a href="{{ url_for('admin_campaigns') }}" class="btn btn-outline-glossy">Campaigns</a>
         <a href="{{ url_for('admin_donors') }}" class="btn btn-outline-glossy">Donors</a>
         <a href="{{ url_for('admin_transactions') }}" class="btn btn-outline-glossy">Transactions</a>
-        <a href="{{ url_for('generate_dummy_data') }}" class="btn btn-primary-glossy">Generate Fake Data</a>
+        <form method="POST" action="{{ url_for('generate_dummy_data') }}" class="d-inline" onsubmit="return confirm('Generate dummy data? This action is not idempotent.');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-primary-glossy">Generate Fake Data</button>
+        </form>
     </div>
 </div>
 

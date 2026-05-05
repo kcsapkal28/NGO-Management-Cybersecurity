@@ -2,11 +2,13 @@ import random
 import time
 import logging
 from flask import jsonify
+from utils import admin_required
 
 logger = logging.getLogger(__name__)
 
 def init_system_test_routes(app):
     @app.route('/system-test/traffic')
+    @admin_required
     def simulate_traffic():
         """Simulates normal traffic with various status codes."""
         codes = [200, 200, 200, 201, 204, 404]
@@ -15,6 +17,7 @@ def init_system_test_routes(app):
         return f"Simulated traffic with status {code}", code
 
     @app.route('/system-test/error')
+    @admin_required
     def simulate_error():
         """Simulates a server-side error."""
         try:
@@ -24,15 +27,17 @@ def init_system_test_routes(app):
             1 / 0
         except Exception as e:
             logger.exception("Caught simulated error: %s", str(e))
-            return jsonify({"error": "Internal Server Error", "message": str(e)}), 500
+            return jsonify({"error": "Internal Server Error"}), 500
 
     @app.route('/system-test/warning')
+    @admin_required
     def simulate_warning():
         """Simulates a system warning."""
         logger.warning("Simulated warning: High CPU usage detected (not really).")
         return "Warning logged!", 200
 
     @app.route('/system-test/slow')
+    @admin_required
     def simulate_slow_request():
         """Simulates a high-latency request."""
         delay = random.uniform(0.5, 3.0)
@@ -41,6 +46,7 @@ def init_system_test_routes(app):
         return f"Slow request finished after {delay:.2f}s", 200
 
     @app.route('/system-test/logs')
+    @admin_required
     def test_logs():
         """Comprehensive log level test."""
         logger.debug("This is a DEBUG log.")
@@ -51,6 +57,7 @@ def init_system_test_routes(app):
         return "All log levels fired!", 200
 
     @app.route('/system-test/simulate')
+    @admin_required
     def simulate_complex_load():
         """Simulates a mix of logs, latency, and random errors."""
         iterations = random.randint(3, 8)

@@ -3,8 +3,8 @@ kind: ConfigMap
 metadata:
   name: app-config
 data:
-  DATABASE_URL: "postgresql://postgres:postgres@db-service:5432/ngo_db"
   JAEGER_HOST: "jaeger-service"
+  JAEGER_SERVICE_NAME: "ngo-management-app"
 
 ---
 apiVersion: v1

@@ -80,9 +80,10 @@ document.getElementById('donationForm').addEventListener('submit', function(e) {
         payment_method: document.getElementById('payment_method').value
     };
 
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
     fetch("{{ url_for('process_payment') }}", {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
         body: JSON.stringify(data)
     })
     .then(response => {

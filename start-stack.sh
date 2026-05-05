@@ -4,26 +4,26 @@ set -e
 # ── Config ──────────────────────────────────────────────
 URL="https://lamprey-useful-slug.ngrok-free.app"
 SVC_NAME="web-service"
-LOCAL_PORT=5001
+LOCAL_PORT=30001
+CLUSTER_NAME="kind"
 # ────────────────────────────────────────────────────────
 
 echo "🧹 Cleaning up existing tunnels..."
-pkill -f "kubectl port-forward" 2>/dev/null || true
 pkill -f "ngrok" 2>/dev/null || true
 sleep 1
 
-# 1. Start Minikube only if it's not already running
-MINIKUBE_STATUS=$(minikube status --format='{{.Host}}' 2>/dev/null || echo "Stopped")
-if [ "$MINIKUBE_STATUS" != "Running" ]; then
-    echo "🚀 Starting Minikube..."
-    minikube start
+# 1. Start Kind only if it's not already running
+KIND_STATUS=$(kind get clusters 2>/dev/null | grep -x "$CLUSTER_NAME" || true)
+if [ -z "$KIND_STATUS" ]; then
+    echo "🚀 Starting Kind cluster..."
+    kind create cluster --name "$CLUSTER_NAME" --config k8s/kind-config.yaml
 else
-    echo "✅ Minikube already running — skipping start."
+    echo "✅ Kind cluster '$CLUSTER_NAME' already running — skipping start."
 fi
 
 # 2. Extract the pod selector from the service
 echo "🔍 Extracting pod selector from $SVC_NAME..."
-SELECTOR=$(kubectl get svc $SVC_NAME -o jsonpath='{.spec.selector.app}')
+SELECTOR=$(kubectl get svc $SVC_NAME -o jsonpath='{.spec.selector.app}' 2>/dev/null || true)
 
 if [ -z "$SELECTOR" ]; then
     echo "❌ Error: Could not find a selector for $SVC_NAME."
@@ -35,28 +35,22 @@ fi
 echo "⏳ Waiting for pod 'app=$SELECTOR' to be Ready..."
 kubectl wait --for=condition=ready pod -l app=$SELECTOR --timeout=120s
 
-# 4. Port Forward (Force IPv4 to avoid loopback issues)
-echo "🔗 Port-forwarding 127.0.0.1:$LOCAL_PORT -> $SVC_NAME..."
-kubectl port-forward --address 127.0.0.1 svc/$SVC_NAME $LOCAL_PORT:$LOCAL_PORT > /tmp/pf.log 2>&1 &
-PF_PID=$!
-
-# 5. Verify port-forward actually connected (retry loop instead of blind sleep)
-echo "   Verifying port-forward..."
+# 4. Verify native port mapping (retry loop instead of blind sleep)
+echo "   Verifying native port mapping at 127.0.0.1:$LOCAL_PORT..."
 for i in {1..10}; do
     if curl -s --max-time 1 http://127.0.0.1:$LOCAL_PORT > /dev/null 2>&1; then
-        echo "   ✅ Port-forward is live."
+        echo "   ✅ Web service is accessible locally."
         break
     fi
     if [ $i -eq 10 ]; then
-        echo "❌ Port-forward failed to connect after 10 attempts."
-        echo "   Check logs: cat /tmp/pf.log"
-        kill $PF_PID 2>/dev/null || true
+        echo "❌ Failed to connect to Web service after 10 attempts."
+        echo "   Please check if the pod is running and kind-config.yaml port mapping is active."
         exit 1
     fi
     sleep 1
 done
 
-# 6. Launch Ngrok
+# 5. Launch Ngrok
 echo ""
 echo "🌐 Site Live at: $URL"
 echo "   (Press Ctrl+C to stop)"

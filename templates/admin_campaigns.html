@@ -10,6 +10,7 @@
         <div class="glossy-card p-4">
             <h5 class="fw-bold text-white mb-4">Create New Campaign</h5>
             <form method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="mb-3">
                     <label class="form-label text-white small fw-medium">Title</label>
                     <input type="text" name="title" class="form-control form-control-glossy" required>
@@ -55,7 +56,10 @@
                             </td>
                             <td>
                                 {% if c.is_active %}
-                                    <a href="{{ url_for('close_campaign', id=c.id) }}" class="btn btn-sm btn-outline-glossy border-0" style="color: #ff4757;">Close</a>
+                                    <form method="POST" action="{{ url_for('close_campaign', id=c.id) }}" class="d-inline" onsubmit="return confirm('Close this campaign?');">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-glossy border-0" style="color: #ff4757;">Close</button>
+                                    </form>
                                 {% endif %}
                             </td>
                         </tr>

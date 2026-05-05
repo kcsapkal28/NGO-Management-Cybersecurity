@@ -1,6 +1,6 @@
 # Kubernetes User Guide & Migration Documentation
 
-This guide provides operational instructions, architectural details, and a migration summary for the **Cybersecurity NGO Management** platform running on Minikube.
+This guide provides operational instructions, architectural details, and a migration summary for the **Cybersecurity NGO Management** platform running on kind.
 
 ---
 
@@ -11,27 +11,24 @@ To bring up the entire stack from scratch:
 
 ```bash
 # 1. Start the cluster
-minikube start --cpus 4 --memory 4096
+kind create cluster --name kind --config k8s/kind-config.yaml
 
-# 2. Build local images inside Minikube
-eval $(minikube docker-env)
+# 2. Build and load local images into Kind
 docker build -t ngo-web-app:latest .
 docker build -t ngo-fluentd:latest ./monitoring/fluentd
+kind load docker-image ngo-web-app:latest ngo-fluentd:latest
 
-# 3. Enable Ingress (for future routing)
-minikube addons enable ingress
-
-# 4. Deploy all resources
+# 3. Deploy all resources
 kubectl apply -k k8s/
 ```
 
 ### 🔍 Accessing Applications
 Since we use `NodePort` services for local access:
 
-| Service | Command to Open | URL (via minikube ip) |
+| Service | Access Method | URL |
 | :--- | :--- | :--- |
-| **Web App** | `minikube service web-service` | `http://$(minikube ip):30001` |
-| **Grafana** | `minikube service grafana-service` | `http://$(minikube ip):30002` |
+| **Web App** | Native Port Mapping | `http://localhost:30001` |
+| **Grafana** | Native Port Mapping | `http://localhost:30002` |
 | **Jaeger** | `kubectl port-forward svc/jaeger-service 16686:16686` | `http://localhost:16686` |
 | **Prometheus**| `kubectl port-forward svc/prometheus-service 9090:9090` | `http://localhost:9090` |
 
@@ -77,7 +74,7 @@ The project has transitioned from a standard `docker-compose.yml` to a structure
 Kubernetes handles storage through **PersistentVolumeClaims (PVCs)** and **Dynamic Provisioning**:
 
 1.  **Volume Templates**: Inside `k8s/app/db.yaml` and `k8s/monitoring/elasticsearch.yaml`, we define `volumeClaimTemplates`.
-2.  **Mounting**: The system automatically requests a volume from Minikube's `standard` storage class.
+2.  **Mounting**: The system automatically requests a volume from Kind's `standard` storage class.
 3.  **Stability**: If the `db-0` pod is deleted, the data remains in the volume. When Kubernetes recreates the pod, it automatically re-mounts the volume to `/var/lib/postgresql/data`.
 4.  **Permission Management**: We implemented an `initContainer` in `elasticsearch.yaml` that runs as root to `chown` the volume directory to the Elasticsearch user (uid: 1000) before the main service starts.
 

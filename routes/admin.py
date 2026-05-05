@@ -61,10 +61,10 @@ def init_admin_routes(app):
         campaigns = Campaign.query.order_by(Campaign.created_at.desc()).paginate(page=page, per_page=10)
         return render_template('admin_campaigns.html', campaigns=campaigns.items, pagination=campaigns)
 
-    @app.route('/admin/campaigns/<int:id>/close')
+    @app.route('/admin/campaigns/<int:id>/close', methods=['POST'])
     @admin_required
     def close_campaign(id):
-        campaign = Campaign.query.get(id)
+        campaign = db.session.get(Campaign, id)
         if campaign:
             campaign.is_active = False
             db.session.commit()
@@ -93,7 +93,7 @@ def init_admin_routes(app):
         transactions = Donation.query.order_by(Donation.created_at.desc()).paginate(page=page, per_page=50)
         return render_template('admin_transactions.html', transactions=transactions.items, pagination=transactions)
 
-    @app.route('/admin/generate_dummy_data')
+    @app.route('/admin/generate_dummy_data', methods=['POST'])
     @admin_required
     def generate_dummy_data():
         fake = Faker()
