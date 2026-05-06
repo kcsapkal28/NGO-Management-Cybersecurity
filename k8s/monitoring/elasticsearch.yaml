@@ -43,23 +43,49 @@ spec:
               value: single-node
             - name: xpack.security.enabled
               value: "false"
+            # Heap should be ≤50% of the container memory limit. With 2Gi
+            # limit we pick 1Gi heap, leaving the other half for the JVM's
+            # off-heap caches (Lucene, network buffers, direct memory).
             - name: ES_JAVA_OPTS
-              value: "-Xms512m -Xmx512m"
+              value: "-Xms1g -Xmx1g"
+            # Stop the cluster from going read-only when the PVC fills.
+            # Single-node so flood_stage will still pause writes; these
+            # values just give a saner warning ramp.
+            - name: cluster.routing.allocation.disk.watermark.low
+              value: "85%"
+            - name: cluster.routing.allocation.disk.watermark.high
+              value: "90%"
+            - name: cluster.routing.allocation.disk.watermark.flood_stage
+              value: "95%"
+          resources:
+            requests:
+              cpu: 200m
+              memory: 1.5Gi
+            limits:
+              cpu: 1
+              memory: 2Gi
           volumeMounts:
             - name: elasticsearch-data
               mountPath: /usr/share/elasticsearch/data
+          # Bumped from defaults — ES can pause for 10–20s during heavy GC or
+          # after Docker Desktop sleep/resume. Tight probes were killing pods
+          # mid-recovery, which then made the storm worse.
           livenessProbe:
             httpGet:
               path: /_cluster/health
               port: 9200
-            initialDelaySeconds: 30
-            periodSeconds: 10
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 5
           readinessProbe:
             httpGet:
               path: /_cluster/health
               port: 9200
-            initialDelaySeconds: 15
-            periodSeconds: 10
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 10
+            failureThreshold: 5
   volumeClaimTemplates:
     - metadata:
         name: elasticsearch-data

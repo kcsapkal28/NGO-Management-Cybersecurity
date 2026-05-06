@@ -1,0 +1,173 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0},
+      "id": 100,
+      "title": "Log Volume",
+      "type": "row"
+    },
+    {
+      "datasource": {"type": "elasticsearch", "uid": "elasticsearch_ds"},
+      "fieldConfig": {"defaults": {"custom": {"drawStyle": "bars", "fillOpacity": 80, "stacking": {"group": "A", "mode": "normal"}}}},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 1},
+      "id": 1,
+      "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi"}},
+      "targets": [{
+        "bucketAggs": [
+          {"field": "levelname.keyword", "id": "3", "settings": {"order": "desc", "orderBy": "_count", "size": "5"}, "type": "terms"},
+          {"field": "@timestamp", "id": "2", "settings": {"interval": "auto"}, "type": "date_histogram"}
+        ],
+        "metrics": [{"id": "1", "type": "count"}],
+        "query": "*",
+        "refId": "A",
+        "timeField": "@timestamp"
+      }],
+      "title": "Logs by level",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "elasticsearch", "uid": "elasticsearch_ds"},
+      "fieldConfig": {"defaults": {}},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 1},
+      "id": 2,
+      "options": {"legend": {"displayMode": "list", "placement": "right", "showLegend": true}, "tooltip": {"mode": "single"}, "displayLabels": ["percent"]},
+      "targets": [{
+        "bucketAggs": [{"field": "pod_name.keyword", "id": "3", "settings": {"order": "desc", "orderBy": "_count", "size": "10"}, "type": "terms"}],
+        "metrics": [{"id": "1", "type": "count"}],
+        "query": "*",
+        "refId": "A",
+        "timeField": "@timestamp"
+      }],
+      "title": "Logs by pod",
+      "type": "piechart"
+    },
+    {
+      "datasource": {"type": "elasticsearch", "uid": "elasticsearch_ds"},
+      "fieldConfig": {"defaults": {"thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 10}, {"color": "red", "value": 50}]}}},
+      "gridPos": {"h": 5, "w": 8, "x": 0, "y": 9},
+      "id": 3,
+      "options": {"colorMode": "background", "graphMode": "area", "reduceOptions": {"calcs": ["sum"], "fields": "", "values": false}, "textMode": "auto"},
+      "targets": [{
+        "bucketAggs": [{"field": "@timestamp", "id": "2", "settings": {"interval": "auto"}, "type": "date_histogram"}],
+        "metrics": [{"id": "1", "type": "count"}],
+        "query": "levelname:ERROR",
+        "refId": "A",
+        "timeField": "@timestamp"
+      }],
+      "title": "ERROR count (range)",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "elasticsearch", "uid": "elasticsearch_ds"},
+      "fieldConfig": {"defaults": {"thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 25}, {"color": "red", "value": 100}]}}},
+      "gridPos": {"h": 5, "w": 8, "x": 8, "y": 9},
+      "id": 4,
+      "options": {"colorMode": "background", "graphMode": "area", "reduceOptions": {"calcs": ["sum"], "fields": "", "values": false}, "textMode": "auto"},
+      "targets": [{
+        "bucketAggs": [{"field": "@timestamp", "id": "2", "settings": {"interval": "auto"}, "type": "date_histogram"}],
+        "metrics": [{"id": "1", "type": "count"}],
+        "query": "levelname:WARNING",
+        "refId": "A",
+        "timeField": "@timestamp"
+      }],
+      "title": "WARNING count (range)",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "elasticsearch", "uid": "elasticsearch_ds"},
+      "fieldConfig": {"defaults": {}},
+      "gridPos": {"h": 5, "w": 8, "x": 16, "y": 9},
+      "id": 5,
+      "options": {"colorMode": "value", "graphMode": "none", "reduceOptions": {"calcs": ["sum"], "fields": "", "values": false}, "textMode": "auto"},
+      "targets": [{
+        "bucketAggs": [{"field": "@timestamp", "id": "2", "settings": {"interval": "auto"}, "type": "date_histogram"}],
+        "metrics": [{"id": "1", "type": "count"}],
+        "query": "_exists_:otelTraceID AND NOT otelTraceID:\"0\"",
+        "refId": "A",
+        "timeField": "@timestamp"
+      }],
+      "title": "Trace-correlated log count",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 14},
+      "id": 101,
+      "title": "Live Tail",
+      "type": "row"
+    },
+    {
+      "datasource": {"type": "elasticsearch", "uid": "elasticsearch_ds"},
+      "gridPos": {"h": 12, "w": 24, "x": 0, "y": 15},
+      "id": 6,
+      "options": {"dedupStrategy": "none", "enableLogDetails": true, "prettifyLogMessage": false, "showCommonLabels": false, "showLabels": false, "showTime": true, "sortOrder": "Descending", "wrapLogMessage": true},
+      "targets": [{
+        "metrics": [{"id": "1", "settings": {"limit": "500"}, "type": "logs"}],
+        "query": "levelname:(WARNING OR ERROR OR CRITICAL)",
+        "refId": "A",
+        "timeField": "@timestamp"
+      }],
+      "title": "Recent WARN/ERROR logs",
+      "type": "logs"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 27},
+      "id": 102,
+      "title": "Tracing",
+      "type": "row"
+    },
+    {
+      "datasource": {"type": "jaeger", "uid": "jaeger_ds"},
+      "description": "Click a row to open the trace in Jaeger UI.",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 28},
+      "id": 7,
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {"show": false}
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {"align": "left", "cellOptions": {"type": "auto"}}
+        },
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "traceID"},
+            "properties": [{
+              "id": "links",
+              "value": [{
+                "title": "Open in Jaeger",
+                "url": "/explore?left=%7B%22datasource%22:%22jaeger_ds%22,%22queries%22:%5B%7B%22query%22:%22${__value.raw}%22,%22queryType%22:%22query%22%7D%5D%7D",
+                "targetBlank": true
+              }]
+            }]
+          }
+        ]
+      },
+      "targets": [{"queryType": "search", "service": "ngo-management-app", "limit": 20, "refId": "A"}],
+      "title": "Recent traces — ngo-management-app",
+      "type": "table"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["ngo", "logs", "traces"],
+  "templating": {"list": []},
+  "time": {"from": "now-1h", "to": "now"},
+  "timepicker": {},
+  "timezone": "",
+  "title": "NGO — Logs & Traces",
+  "uid": "ngo_logs",
+  "version": 1,
+  "weekStart": ""
+}

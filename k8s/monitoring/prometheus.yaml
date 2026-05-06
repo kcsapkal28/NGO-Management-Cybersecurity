@@ -1,4 +1,36 @@
 apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: prometheus
+rules:
+  - apiGroups: [""]
+    resources: ["nodes", "nodes/metrics", "services", "endpoints", "pods"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "watch"]
+  - nonResourceURLs: ["/metrics"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: prometheus
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: prometheus
+subjects:
+  - kind: ServiceAccount
+    name: prometheus
+    namespace: default
+---
+apiVersion: v1
 kind: Service
 metadata:
   name: prometheus-service
@@ -24,6 +56,7 @@ spec:
       labels:
         app: prometheus
     spec:
+      serviceAccountName: prometheus
       containers:
         - name: prometheus
           image: prom/prometheus:latest
@@ -37,6 +70,8 @@ spec:
             - name: config-volume
               mountPath: /etc/prometheus/prometheus.yml
               subPath: prometheus.yml
+            - name: rules-volume
+              mountPath: /etc/prometheus/rules
             - name: prometheus-data
               mountPath: /prometheus
           livenessProbe:
@@ -55,6 +90,9 @@ spec:
         - name: config-volume
           configMap:
             name: prometheus-config
+        - name: rules-volume
+          configMap:
+            name: prometheus-rules
   volumeClaimTemplates:
     - metadata:
         name: prometheus-data

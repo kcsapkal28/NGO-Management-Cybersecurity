@@ -1,0 +1,66 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: elasticsearch-exporter-service
+  labels:
+    app: elasticsearch-exporter
+spec:
+  ports:
+    - name: metrics
+      port: 9114
+      targetPort: 9114
+  selector:
+    app: elasticsearch-exporter
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: elasticsearch-exporter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: elasticsearch-exporter
+  template:
+    metadata:
+      labels:
+        app: elasticsearch-exporter
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9114"
+    spec:
+      containers:
+        - name: exporter
+          image: quay.io/prometheuscommunity/elasticsearch-exporter:v1.7.0
+          args:
+            - --es.uri=http://elasticsearch-service:9200
+            - --es.all
+            - --es.indices
+            - --es.indices_settings
+          ports:
+            - containerPort: 9114
+              name: metrics
+          resources:
+            requests:
+              cpu: 50m
+              memory: 50Mi
+            limits:
+              cpu: 200m
+              memory: 200Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 9114
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 9114
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 65534

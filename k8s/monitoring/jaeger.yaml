@@ -2,6 +2,8 @@ apiVersion: v1
 kind: Service
 metadata:
   name: jaeger-service
+  labels:
+    app: jaeger
 spec:
   ports:
     - name: ui
@@ -10,6 +12,8 @@ spec:
       port: 4317
     - name: http
       port: 4318
+    - name: admin-metrics
+      port: 14269
   selector:
     app: jaeger
 ---
@@ -26,6 +30,10 @@ spec:
     metadata:
       labels:
         app: jaeger
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "14269"
+        prometheus.io/path: "/metrics"
     spec:
       containers:
         - name: jaeger
@@ -34,11 +42,15 @@ spec:
             - containerPort: 16686
             - containerPort: 4317
             - containerPort: 4318
+            - containerPort: 14269
+              name: admin-metrics
           env:
             - name: SPAN_STORAGE_TYPE
               value: "elasticsearch"
             - name: ES_SERVER_URLS
               value: "http://elasticsearch-service:9200"
+            - name: METRICS_BACKEND
+              value: "prometheus"
           livenessProbe:
             httpGet:
               path: /

@@ -22,3 +22,9 @@ datasources:
     database: "fluentd-*"
     jsonData:
       timeField: "@timestamp"
+      esVersion: "8.10.2"
+      # Without these, the Logs panel falls back to @log_name (the source
+      # filename) as the line text — useless for humans.
+      logMessageField: message
+      logLevelField: levelname
+      maxConcurrentShardRequests: 5

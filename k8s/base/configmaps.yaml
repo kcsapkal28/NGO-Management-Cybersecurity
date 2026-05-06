@@ -5,6 +5,8 @@ metadata:
 data:
   JAEGER_HOST: "jaeger-service"
   JAEGER_SERVICE_NAME: "ngo-management-app"
+  # Enables /system-test/* endpoints. Set to "false" before promoting to prod.
+  SYSTEM_TEST_ENABLED: "true"
 
 ---
 apiVersion: v1
@@ -15,12 +17,74 @@ data:
   prometheus.yml: |
     global:
       scrape_interval: 15s
+      evaluation_interval: 15s
+
+    rule_files:
+      - /etc/prometheus/rules/*.yml
+
+    alerting:
+      alertmanagers:
+        - static_configs:
+            - targets: ['alertmanager-service:9093']
 
     scrape_configs:
-      - job_name: 'flask_app'
-        metrics_path: '/metrics'
+      # Self-scrape stays static — Prometheus doesn't discover its own pod
+      # by annotation in single-replica clusters where /-/ready already proves
+      # the instance is up.
+      - job_name: 'prometheus'
         static_configs:
-          - targets: ['web-service:5001']
+          - targets: ['localhost:9090']
+
+      # All other targets are discovered via pod annotations.
+      # A workload opts in by adding to its pod template:
+      #   prometheus.io/scrape: "true"
+      #   prometheus.io/port:   "<container port>"
+      #   prometheus.io/path:   "/metrics"   (optional, defaults to /metrics)
+      # The job label is taken from the pod's app= label so dashboard queries
+      # built against the old static job names (flask_app, node-exporter, ...)
+      # continue to resolve.
+      - job_name: 'kubernetes-pods'
+        kubernetes_sd_configs:
+          - role: pod
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: true
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+          - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: replace
+            regex: ([^:]+)(?::\d+)?;(\d+)
+            replacement: $1:$2
+            target_label: __address__
+          - source_labels: [__meta_kubernetes_namespace]
+            action: replace
+            target_label: namespace
+          - source_labels: [__meta_kubernetes_pod_name]
+            action: replace
+            target_label: pod
+          # Default job = pod app label, then override with prometheus.io/job
+          # annotation if present (lets the web pod keep job="flask_app").
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: replace
+            target_label: job
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_job]
+            action: replace
+            regex: (.+)
+            target_label: job
+          - source_labels: [__meta_kubernetes_pod_node_name]
+            action: replace
+            target_label: node
+          # Drop init containers that briefly listen but don't serve metrics
+          - source_labels: [__meta_kubernetes_pod_container_init]
+            action: drop
+            regex: true
+          # Drop containers in non-ready phases to keep target list clean
+          - source_labels: [__meta_kubernetes_pod_phase]
+            action: drop
+            regex: (Pending|Succeeded|Failed)
 
 ---
 apiVersion: v1
@@ -29,20 +93,54 @@ metadata:
   name: fluentd-config
 data:
   fluent.conf: |
+    # Tail container logs. Kind/containerd writes CRI format:
+    #   <RFC3339-nano> <stdout|stderr> <F|P> <content>
+    # Excludes fluentd's own logs (otherwise parse errors feed back in a loop).
     <source>
       @type tail
       path /var/log/containers/*_default_*.log
+      exclude_path ["/var/log/containers/fluentd-*.log"]
       pos_file /var/log/fluentd-containers.log.pos
       tag kubernetes.*
       read_from_head true
       <parse>
-        @type json
+        @type regexp
+        expression /^(?<time>[^ ]+) (?<stream>stdout|stderr) (?<flags>[FP]) (?<log>.*)$/
         time_key time
         time_format %Y-%m-%dT%H:%M:%S.%NZ
       </parse>
     </source>
 
-    <match **>
+    # Lift the inner JSON the Flask app emits via python-json-logger.
+    # If 'log' isn't valid JSON (e.g. werkzeug plain-text), keep it as-is.
+    <filter kubernetes.**>
+      @type parser
+      key_name log
+      reserve_data true
+      remove_key_name_field false
+      emit_invalid_record_to_error false
+      <parse>
+        @type json
+      </parse>
+    </filter>
+
+    # Extract pod_name / namespace / container_name from the container log
+    # filename. Tag from `tag kubernetes.*` is dotted-path:
+    #   kubernetes.var.log.containers.<pod>_<ns>_<container>-<id>.log
+    # so tag_parts[-2] is the filename minus the .log extension. The
+    # container id is 64 hex chars trailing the container name; strip it.
+    # Cheaper than installing fluent-plugin-kubernetes_metadata_filter.
+    <filter kubernetes.**>
+      @type record_transformer
+      enable_ruby true
+      <record>
+        pod_name ${tag_parts[-2].split('_')[0] rescue '-'}
+        namespace ${tag_parts[-2].split('_')[1] rescue '-'}
+        container_name ${tag_parts[-2].split('_')[2].sub(/-[0-9a-f]{64}$/, '') rescue '-'}
+      </record>
+    </filter>
+
+    <match kubernetes.**>
       @type elasticsearch
       host elasticsearch-service
       port 9200
@@ -54,4 +152,9 @@ data:
       <buffer>
         flush_interval 1s
       </buffer>
+    </match>
+
+    # Drop fluentd's own internal logs so they don't pollute ES.
+    <match fluent.**>
+      @type null
     </match>

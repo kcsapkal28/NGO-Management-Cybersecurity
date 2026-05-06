@@ -5,20 +5,26 @@ datasources:
     type: prometheus
     uid: prometheus_ds
     access: proxy
-    url: http://prometheus:9090
+    url: http://prometheus-service:9090
     isDefault: true
 
   - name: Jaeger
     type: jaeger
     uid: jaeger_ds
     access: proxy
-    url: http://jaeger:16686
+    url: http://jaeger-service:16686
 
   - name: Elasticsearch
     type: elasticsearch
     uid: elasticsearch_ds
     access: proxy
-    url: http://elasticsearch:9200
+    url: http://elasticsearch-service:9200
     database: "fluentd-*"
     jsonData:
       timeField: "@timestamp"
+      esVersion: "8.10.2"
+      # Without these, the Logs panel falls back to @log_name (the source
+      # filename) as the line text — useless for humans.
+      logMessageField: message
+      logLevelField: levelname
+      maxConcurrentShardRequests: 5

@@ -1,0 +1,113 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: elasticsearch-init-scripts
+data:
+  ilm-policy.json: |
+    {
+      "policy": {
+        "phases": {
+          "hot": {
+            "min_age": "0ms",
+            "actions": {}
+          },
+          "delete": {
+            "min_age": "14d",
+            "actions": {"delete": {}}
+          }
+        }
+      }
+    }
+
+  index-template.json: |
+    {
+      "index_patterns": ["fluentd-*"],
+      "priority": 100,
+      "template": {
+        "settings": {
+          "number_of_shards": 1,
+          "number_of_replicas": 0,
+          "refresh_interval": "5s",
+          "codec": "best_compression",
+          "lifecycle": {"name": "fluentd-logs"}
+        },
+        "mappings": {
+          "properties": {
+            "@timestamp":            {"type": "date"},
+            "@log_name":             {"type": "keyword"},
+            "levelname":             {"type": "keyword"},
+            "name":                  {"type": "keyword"},
+            "message": {
+              "type": "text",
+              "fields": {"keyword": {"type": "keyword", "ignore_above": 8192}}
+            },
+            "request_id":            {"type": "keyword"},
+            "user_id":               {"type": "keyword"},
+            "route":                 {"type": "keyword"},
+            "method":                {"type": "keyword"},
+            "remote_addr":           {"type": "keyword"},
+            "status_code":           {"type": "long"},
+            "stream":                {"type": "keyword"},
+            "flags":                 {"type": "keyword"},
+            "otelTraceID":           {"type": "keyword"},
+            "otelSpanID":            {"type": "keyword"},
+            "otelServiceName":       {"type": "keyword"},
+            "pod_name":              {"type": "keyword"},
+            "namespace":             {"type": "keyword"},
+            "container_name":        {"type": "keyword"},
+            "kubernetes": {
+              "properties": {
+                "pod_name":          {"type": "keyword"},
+                "namespace":         {"type": "keyword"},
+                "container_name":    {"type": "keyword"}
+              }
+            }
+          }
+        }
+      }
+    }
+---
+# Idempotent: PUTs the policy and template (PUT replaces). Re-runs on every
+# rollout so config edits flow without manual curl. Only fails on real ES
+# errors (4xx/5xx). The template applies only to NEW indices — existing
+# fluentd-YYYY.MM.DD indices keep their dynamic mappings until they roll.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: elasticsearch-init
+spec:
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 5
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: init
+          image: curlimages/curl:8.5.0
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -eu
+              ES="http://elasticsearch-service:9200"
+              echo "waiting for elasticsearch..."
+              until curl -sf "$ES/_cluster/health?wait_for_status=yellow&timeout=10s" >/dev/null; do
+                echo "  ...not ready yet"; sleep 3
+              done
+              echo "applying ILM policy fluentd-logs"
+              curl -sf -X PUT -H 'Content-Type: application/json' \
+                "$ES/_ilm/policy/fluentd-logs" \
+                --data-binary @/scripts/ilm-policy.json
+              echo
+              echo "applying index template for fluentd-*"
+              curl -sf -X PUT -H 'Content-Type: application/json' \
+                "$ES/_index_template/fluentd" \
+                --data-binary @/scripts/index-template.json
+              echo
+              echo "done."
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+      volumes:
+        - name: scripts
+          configMap:
+            name: elasticsearch-init-scripts

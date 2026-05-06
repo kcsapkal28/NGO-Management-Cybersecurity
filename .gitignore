@@ -1,30 +1,48 @@
-# Byte-compiled / optimized / DLL files
+# --- Python ---
 __pycache__/
 *.py[cod]
 *$py.class
+*.egg-info/
+*.egg
+build/
+dist/
 
-# Virtual Environments
+# --- Virtual environments ---
 venv/
 .venv/
 env/
 ENV/
 
-# Database files
+# --- Local databases ---
 *.db
 *.sqlite
 *.sqlite3
 
-# Flask session / instances
+# --- Flask runtime / caches ---
 instance/
 .webassets-cache
 
-# IDE / Editor configurations
+# --- Test / build caches ---
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+
+# --- Test artifacts ---
+tests/monitoring/results/*.csv
+tests/monitoring/results/*.json
+
+# --- IDE / editors ---
 .vscode/
 .idea/
 *.swp
 *.swo
+*.bak
 
-# OS generated files
+# --- OS generated ---
 .DS_Store
 .DS_Store?
 ._*
@@ -32,3 +50,20 @@ instance/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# --- Secrets / env files ---
+.env
+.env.local
+*.pem
+*.key
+
+# --- Demo media (large) ---
+# The demo video is hosted on LinkedIn / external. Keep PNGs only — they
+# render inline in the GitHub README and stay small.
+docs/screenshots/*.mp4
+docs/screenshots/*.mov
+docs/screenshots/*.webm
+
+# --- ngrok / tunnels ---
+*.tunnel
+ngrok.log

@@ -7,6 +7,7 @@ resources:
   - app/db.yaml
   - app/web.yaml
   - monitoring/elasticsearch.yaml
+  - monitoring/elasticsearch-init.yaml
   - monitoring/fluentd.yaml
   - monitoring/jaeger.yaml
   - monitoring/prometheus.yaml
@@ -19,4 +20,6 @@ configMapGenerator:
   - name: grafana-dashboards
     files:
       - base/grafana-provisioning/dashboards/dashboards.yml
-      - base/grafana-provisioning/dashboards/ngo_performance.json
+      - base/grafana-provisioning/dashboards/app-overview.json
+      - base/grafana-provisioning/dashboards/infrastructure.json
+      - base/grafana-provisioning/dashboards/logs-traces.json
