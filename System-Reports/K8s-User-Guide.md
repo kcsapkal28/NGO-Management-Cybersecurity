@@ -1,108 +1,194 @@
-# Kubernetes User Guide & Migration Documentation
+# Kubernetes User Guide
 
-This guide provides operational instructions, architectural details, and a migration summary for the **Cybersecurity NGO Management** platform running on kind.
+Operational reference for the Cybersecurity NGO Management platform on Kind. Pairs with `PROJECT-OVERVIEW.md` (architecture/endpoints) and `SETUP.md` (initial bring-up).
 
 ---
 
-## 1. Operational User Guide
+## 1. Workload inventory
 
-### 🚀 Starting the Environment
-To bring up the entire stack from scratch:
+After `kubectl apply -k k8s/`, the cluster runs:
+
+### App tier
+| Workload | Kind | Image | Notes |
+|---|---|---|---|
+| `web` | Deployment | `ngo-web-app:latest` (local) | NodePort 30001 → 5001. Annotated for Prometheus scrape with `prometheus.io/job: flask_app`. Downward-API env (`K8S_POD_NAME`/`NAMESPACE`/`NODE_NAME`). |
+| `db` | StatefulSet | `postgres:15-alpine` | Headless `db-service`, PVC `postgres-data` 1Gi |
+
+### Observability tier
+| Workload | Kind | Image | Purpose |
+|---|---|---|---|
+| `prometheus` | StatefulSet | `prom/prometheus:latest` | Scrape via K8s pod SD; rules from `prometheus-rules` configmap; alerts to `alertmanager-service` |
+| `alertmanager` | Deployment | `prom/alertmanager:v0.27.0` | 8 starter rules; log-only receiver until destination wired |
+| `grafana` | StatefulSet | `grafana/grafana:9.5.18` | NodePort 30002. 3 dashboards provisioned |
+| `jaeger` | Deployment | `jaegertracing/all-in-one:latest` | Stores spans in ES; admin metrics on `:14269` |
+| `elasticsearch` | StatefulSet | `elasticsearch:8.10.2` | 1g heap, 2Gi PVC, watermark `85/90/95%`. ILM policy `fluentd-logs` (delete at 14d), index template applied via init Job |
+| `elasticsearch-init` | Job | `curlimages/curl:8.5.0` | One-shot: PUTs ILM policy + `fluentd-*` index template. Idempotent, re-runs on each apply |
+| `fluentd` | DaemonSet | `ngo-fluentd:latest` (local) | CRI parser, JSON re-parser, pod_name extractor from filename |
+
+### Exporters (Phase 1.2)
+| Workload | Image | Scrapes |
+|---|---|---|
+| `node-exporter` | `prom/node-exporter:v1.7.0` | Host CPU/memory/disk/network — DaemonSet |
+| `kube-state-metrics` | `kube-state-metrics:v2.10.1` | Pod inventory, restarts, deployment health |
+| `postgres-exporter` | `prometheuscommunity/postgres-exporter:v0.15.0` | `pg_up`, connection counts, commit rate |
+| `elasticsearch-exporter` | `prometheuscommunity/elasticsearch-exporter:v1.7.0` | Cluster health, JVM heap, indexing rate |
+
+All annotated `prometheus.io/scrape: "true"`. Adding a new exporter is a one-file change — no Prometheus configmap edit needed.
+
+---
+
+## 2. Quick start
 
 ```bash
-# 1. Start the cluster
+# 1. Cluster
 kind create cluster --name kind --config k8s/kind-config.yaml
 
-# 2. Build and load local images into Kind
+# 2. Build + load local images
 docker build -t ngo-web-app:latest .
 docker build -t ngo-fluentd:latest ./monitoring/fluentd
-kind load docker-image ngo-web-app:latest ngo-fluentd:latest
+kind load docker-image ngo-web-app:latest --name kind
+kind load docker-image ngo-fluentd:latest --name kind
 
-# 3. Deploy all resources
+# 3. Apply everything (kustomize bundle)
 kubectl apply -k k8s/
-```
 
-### 🔍 Accessing Applications
-Since we use `NodePort` services for local access:
-
-| Service | Access Method | URL |
-| :--- | :--- | :--- |
-| **Web App** | Native Port Mapping | `http://localhost:30001` |
-| **Grafana** | Native Port Mapping | `http://localhost:30002` |
-| **Jaeger** | `kubectl port-forward svc/jaeger-service 16686:16686` | `http://localhost:16686` |
-| **Prometheus**| `kubectl port-forward svc/prometheus-service 9090:9090` | `http://localhost:9090` |
-
-### 🛠️ Useful kubectl Commands
-
-**Check Health of All Pods:**
-```bash
-kubectl get pods
-```
-
-**Stream Application Logs:**
-```bash
-kubectl logs -f deployment/web
-```
-
-**Restart a Specific Service (e.g., Fluentd):**
-```bash
-kubectl rollout restart daemonset/fluentd
-```
-
-**Scale the Web Tier:**
-```bash
-kubectl scale deployment/web --replicas=3
-```
-
-**Enter a Database Shell (PostgreSQL):**
-```bash
-kubectl exec -it db-0 -- psql -U postgres -d ngo_db
+# 4. Verify
+bash tests/monitoring/bash/smoke.sh
 ```
 
 ---
 
-## 2. Cluster Architecture & Persistence
+## 3. Access
 
-### 🏗️ Workload Architecture
-The project has transitioned from a standard `docker-compose.yml` to a structured Kubernetes hierarchy:
-
-*   **Data Tier (StatefulSets)**: `db` and `elasticsearch` are managed as `StatefulSets`. Unlike standard Deployments, StatefulSets provide stable network IDs (`db-0`) and ensure that specific volumes are re-attached to the same pod instance during restarts.
-*   **App Tier (Deployments)**: `web`, `prometheus`, `grafana`, and `jaeger` use standard `Deployments`. They are stateless or store their configuration in ConfigMaps, allowing them to scale horizontally across the cluster.
-*   **Observability Agent (DaemonSet)**: `fluentd` runs as a `DaemonSet`. This ensures exactly one instance runs on every node of the cluster to capture logs from `/var/log/containers/`.
-
-### 💾 Persistence Configuration
-Kubernetes handles storage through **PersistentVolumeClaims (PVCs)** and **Dynamic Provisioning**:
-
-1.  **Volume Templates**: Inside `k8s/app/db.yaml` and `k8s/monitoring/elasticsearch.yaml`, we define `volumeClaimTemplates`.
-2.  **Mounting**: The system automatically requests a volume from Kind's `standard` storage class.
-3.  **Stability**: If the `db-0` pod is deleted, the data remains in the volume. When Kubernetes recreates the pod, it automatically re-mounts the volume to `/var/lib/postgresql/data`.
-4.  **Permission Management**: We implemented an `initContainer` in `elasticsearch.yaml` that runs as root to `chown` the volume directory to the Elasticsearch user (uid: 1000) before the main service starts.
+| Service | Method | URL |
+|---|---|---|
+| Web app | NodePort | http://localhost:30001 |
+| Grafana | NodePort | http://localhost:30002 (admin / admin) |
+| System-test panel | NodePort + admin | http://localhost:30001/system-test/ |
+| Jaeger | port-forward `svc/jaeger-service 16686:16686` | http://localhost:16686 |
+| Prometheus | port-forward `svc/prometheus-service 9090:9090` | http://localhost:9090 |
+| Elasticsearch | port-forward `svc/elasticsearch-service 9200:9200` | http://localhost:9200 |
+| Alertmanager | port-forward `svc/alertmanager-service 9093:9093` | http://localhost:9093 |
 
 ---
 
-## 3. Migration Walkthrough: Step-by-Step
+## 4. Common operations
 
-The migration followed a 4-phase transformation to ensure a stable, production-ready Kubernetes environment.
+### Promote yourself to admin
+```bash
+kubectl exec deploy/web -- flask promote-admin you@example.com
+```
+Prereq: the user must already exist (sign up via `/auth` first).
 
-### Phase 1: Resource Mapping & Translation
-*   **Action**: Converted `docker-compose` services into Kubernetes `Deployment`, `Service`, `Secret`, and `ConfigMap` objects.
-*   **Result**: Created a structured `k8s/` directory to separate App, Monitoring, and Persistence layers.
+### Tail app logs (filter by level)
+```bash
+kubectl logs -l app=web --tail=100 -f | jq 'select(.levelname=="ERROR")'
+```
 
-### Phase 2: Resolving Data Initialization & Dependencies
-*   **Challenge**: The Flask app would crash if it attempted to connect to Postgres before the database was ready.
-*   **Action**: Implemented an **Init Container** in `web.yaml`. This container uses Python/SQLAlchemy to poll the database connection and runs `db.create_all()` only once the connection is successful.
+### Rebuild + redeploy the app
+```bash
+docker build -t ngo-web-app:latest .
+kind load docker-image ngo-web-app:latest --name kind
+kubectl rollout restart deploy/web
+kubectl rollout status   deploy/web --timeout=180s
+```
 
-### Phase 3: Fixing Networking & DNS Resolution
-*   **Challenge**: Services like Fluentd and Grafana were hardcoded to use `http://elasticsearch:9200`. In K8s, service discovery requires the full service name.
-*   **Action**: Updated all configurations and `datasources.yml` to use `-service` suffixes (e.g., `elasticsearch-service`). We also converted `elasticsearch-service` from "Headless" to a standard ClusterIP to ensure reliable internal DNS resolution.
+### Check Prometheus targets
+```bash
+kubectl port-forward svc/prometheus-service 9090:9090 &
+curl -s 'http://127.0.0.1:9090/api/v1/targets' | jq '.data.activeTargets[] | {job:.labels.job, health}'
+```
 
-### Phase 4: Enabling Cluster-Wide Observability
-*   **Challenge**: Standard Docker logging drivers do not exist in Kubernetes.
-*   **Action**: 
-    1.  Modified `app.py` to output JSON logs to `stdout`.
-    2.  Deployed Fluentd as a `DaemonSet` to scrape logs from the node's `/var/log` directory.
-    3.  Modified Fluentd's `securityContext` to allow root access for log-scraping, ensuring logs flow smoothly into the Elasticsearch backend.
+### Force-reapply ES index template + ILM
+The init Job is idempotent — just re-run it:
+```bash
+kubectl delete job elasticsearch-init --ignore-not-found
+kubectl apply -f k8s/monitoring/elasticsearch-init.yaml
+```
+
+### Disable observability v2 (rollback)
+```bash
+kubectl set env deploy/web OBSERVABILITY_V2=false
+kubectl rollout status deploy/web
+```
+Reverts to legacy Flask + SQLAlchemy auto-instrumentation only — keeps the app up while you debug.
+
+### Disable system-test endpoints
+```bash
+kubectl set env deploy/web SYSTEM_TEST_ENABLED=false
+```
+Every `/system-test/*` route returns 404.
+
+### Connect to Postgres
+```bash
+kubectl port-forward svc/db-service 5432:5432
+psql postgresql://postgres:postgres@127.0.0.1:5432/ngo_db
+```
+
+### Switch the Alertmanager destination
+Edit the `receivers:` block in `k8s/monitoring/alertmanager.yaml`, swap the `webhook_configs` entry for `slack_configs`/`email_configs`/etc., then:
+```bash
+kubectl apply -f k8s/monitoring/alertmanager.yaml
+kubectl rollout restart deployment/alertmanager
+```
 
 ---
 
-*This guide will be updated as the cluster evolves. For troubleshooting, always check `kubectl describe pod <pod-name>` first.*
+## 5. Architecture notes
+
+### Workload kinds
+- **StatefulSets** (`db`, `elasticsearch`, `prometheus`, `grafana`) — stable network IDs and persistent volumes that re-attach to the same pod.
+- **Deployments** (`web`, `jaeger`, `alertmanager`, `kube-state-metrics`, `*-exporter`) — stateless or configmap-backed; can scale horizontally.
+- **DaemonSets** (`fluentd`, `node-exporter`) — one pod per node. Fluentd tails `/var/log/containers/*_default_*.log` from the host filesystem.
+
+### Persistence
+- `db-0` → `postgres-data` PVC (1Gi)
+- `elasticsearch-0` → `elasticsearch-data` PVC (2Gi). 14-day retention via ILM `fluentd-logs` policy.
+- `grafana-0` → `grafana-storage` PVC (2Gi)
+- `prometheus-0` → `prometheus-data` PVC (5Gi), 15d retention.
+
+### Observability pipeline
+1. **Logs**: Flask emits JSON to stdout → kubelet writes to `/var/log/containers/<pod>_<ns>_<container>.log` (CRI format) → Fluentd DaemonSet tails, parses CRI envelope, lifts inner app JSON, extracts pod_name/namespace/container_name from filename → ships to Elasticsearch as `fluentd-YYYY.MM.DD`. Index template applies to new daily indices.
+2. **Metrics**: prometheus-flask-exporter on `/metrics` + custom `ngo_*` business metrics + 5 infra exporters → Prometheus scrapes via K8s pod SD (annotation-driven) → Grafana queries.
+3. **Traces**: OTel Flask/SQLAlchemy/Requests/Jinja2/Logging instrumentation → OTLP gRPC to Jaeger collector → Jaeger stores spans in Elasticsearch. Trace IDs are correlated with log records via `otelTraceID` field.
+4. **Alerts**: Prometheus evaluates 8 rules every 30s → Alertmanager groups + dedupes → currently log-only receiver.
+
+---
+
+## 6. Troubleshooting
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `web` stuck on `Init:0/1` | Postgres not Ready | Wait — init container polls until DB accepts connections |
+| `elasticsearch-0` CrashLoopBackOff | Liveness probe too tight after Docker pause/sleep | Probe is now `failureThreshold=5`, `timeoutSeconds=10` — usually self-heals on restart |
+| `jaeger` CrashLoopBackOff during bring-up | ES not Ready yet | Self-heals once ES is up; expect 1–4 restarts on cold start |
+| `ErrImageNeverPull` on web/fluentd | Image not loaded into Kind | `kind load docker-image <name>:latest --name kind` |
+| Prometheus target shows `down` | Pod missing `prometheus.io/scrape` annotation | Add the three annotations (`scrape`, `port`, `path`) to the pod template |
+| `otelTraceID: "0"` in logs | Log emitted outside any Flask span (e.g. background task, OTel exporter retry) | Expected — only in-request logs carry real trace ids |
+| `pod_name: "containers"` or `"-"` in ES docs | Tag-parsing regex mismatch | Check Fluentd config in `k8s/base/configmaps.yaml` — `tag_parts[-2]` should hit the filename |
+| Alertmanager shows alerts firing | Real condition or rule misconfigured | `kubectl port-forward svc/prometheus-service 9090:9090` → http://localhost:9090/alerts to inspect |
+
+Useful diagnostics:
+```bash
+kubectl describe pod <pod>
+kubectl get events --sort-by=.lastTimestamp | tail -20
+kubectl logs <pod> --previous
+```
+
+---
+
+## 7. Teardown
+
+Remove the application stack (keep cluster):
+```bash
+kubectl delete -k k8s/
+```
+
+Destroy the entire kind cluster + PVs:
+```bash
+kind delete cluster --name kind
+```
+
+---
+
+*See also*: `PROJECT-OVERVIEW.md` for the canonical endpoint reference and `SETUP.md` for first-time setup details.

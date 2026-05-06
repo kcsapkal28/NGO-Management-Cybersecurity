@@ -6,19 +6,34 @@ End-to-end instructions for running the platform on a local Kubernetes cluster (
 
 ## 1. What gets deployed
 
-Applying `k8s/` brings up seven workloads in the `default` namespace:
+Applying `k8s/` brings up the workloads below in the `default` namespace.
 
+### App tier
 | Workload          | Kind        | Image                                            | Exposure                      |
 |-------------------|-------------|--------------------------------------------------|-------------------------------|
 | `web`             | Deployment  | `ngo-web-app:latest` (built locally)             | NodePort 30001 → 5001         |
 | `db`              | StatefulSet | `postgres:15-alpine`                             | ClusterIP (headless)          |
-| `elasticsearch`   | StatefulSet | `docker.elastic.co/elasticsearch/elasticsearch:8.10.2` | ClusterIP                     |
-| `prometheus`      | StatefulSet | `prom/prometheus:latest`                         | ClusterIP                     |
+
+### Observability core
+| Workload          | Kind        | Image                                            | Exposure                      |
+|-------------------|-------------|--------------------------------------------------|-------------------------------|
+| `prometheus`      | StatefulSet | `prom/prometheus:latest`                         | ClusterIP 9090                |
+| `alertmanager`    | Deployment  | `prom/alertmanager:v0.27.0`                      | ClusterIP 9093                |
 | `grafana`         | StatefulSet | `grafana/grafana:9.5.18`                         | NodePort 30002 → 3000         |
-| `jaeger`          | Deployment  | `jaegertracing/all-in-one:latest`                | ClusterIP (UI 16686)          |
+| `jaeger`          | Deployment  | `jaegertracing/all-in-one:latest`                | UI 16686, OTLP 4317, metrics 14269 |
+| `elasticsearch`   | StatefulSet | `elasticsearch:8.10.2`                           | ClusterIP 9200                |
+| `elasticsearch-init` | Job      | `curlimages/curl:8.5.0`                          | one-shot (PUTs ILM + template) |
 | `fluentd`         | DaemonSet   | `ngo-fluentd:latest` (built locally)             | ClusterIP 24224               |
 
-`DATABASE_URL` is sourced from the `app-secrets` Secret. Other app config (`JAEGER_HOST`, `JAEGER_SERVICE_NAME`) lives in the `app-config` ConfigMap. Grafana datasources/dashboards are provisioned via Kustomize-generated ConfigMaps from `k8s/base/grafana-provisioning/`.
+### Exporters (annotation-discovered by Prometheus)
+| Workload                  | Image                                                  | Source of metrics             |
+|---------------------------|--------------------------------------------------------|-------------------------------|
+| `node-exporter`           | `prom/node-exporter:v1.7.0`                            | DaemonSet — host CPU/mem/disk/net |
+| `kube-state-metrics`      | `kube-state-metrics:v2.10.1`                           | Pod inventory, restarts, deployment health |
+| `postgres-exporter`       | `prometheuscommunity/postgres-exporter:v0.15.0`        | `pg_up`, connection counts, commit rate |
+| `elasticsearch-exporter`  | `prometheuscommunity/elasticsearch-exporter:v1.7.0`    | Cluster health, JVM heap, indexing rate |
+
+`DATABASE_URL` is sourced from the `app-secrets` Secret. Other app config (`JAEGER_HOST`, `JAEGER_SERVICE_NAME`, `SYSTEM_TEST_ENABLED`) lives in the `app-config` ConfigMap. Grafana datasources/dashboards (3 dashboards: App Overview, Infrastructure, Logs & Traces) are provisioned via Kustomize-generated ConfigMaps from `k8s/base/grafana-provisioning/`. Prometheus rules (8 starter alerts) come from the `prometheus-rules` ConfigMap.
 
 ---
 
@@ -122,7 +137,7 @@ kind load docker-image ngo-fluentd:latest --name kind
 kubectl apply -k k8s/
 ```
 
-Expected output: 6 ConfigMaps, 1 Secret, 7 Services, 2 Deployments, 4 StatefulSets, 1 DaemonSet (≈20 objects).
+Expected: ~9 ConfigMaps, 1 Secret, 2 ServiceAccounts, 2 ClusterRoles + bindings, ~12 Services, 6 Deployments, 4 StatefulSets, 2 DaemonSets, 1 Job (~40 objects).
 
 Optional pre-flight render:
 
@@ -137,24 +152,40 @@ kubectl kustomize k8s/ | less
 In rollout-dependency order:
 
 ```bash
-kubectl rollout status statefulset/db             --timeout=300s
-kubectl rollout status statefulset/elasticsearch  --timeout=600s
-kubectl rollout status statefulset/prometheus     --timeout=300s
-kubectl rollout status statefulset/grafana        --timeout=300s
-kubectl rollout status deploy/jaeger              --timeout=300s
-kubectl rollout status deploy/web                 --timeout=300s
-kubectl rollout status ds/fluentd                 --timeout=180s
+# Data layer first
+kubectl rollout status statefulset/db                --timeout=300s
+kubectl rollout status statefulset/elasticsearch     --timeout=600s
+
+# Core observability
+kubectl rollout status statefulset/prometheus        --timeout=300s
+kubectl rollout status statefulset/grafana           --timeout=300s
+kubectl rollout status deploy/jaeger                 --timeout=300s
+kubectl rollout status deploy/alertmanager           --timeout=300s
+
+# Exporters (Phase 1.2)
+kubectl rollout status deploy/kube-state-metrics     --timeout=180s
+kubectl rollout status deploy/postgres-exporter      --timeout=180s
+kubectl rollout status deploy/elasticsearch-exporter --timeout=180s
+kubectl rollout status ds/node-exporter              --timeout=180s
+
+# Log pipeline + app
+kubectl rollout status ds/fluentd                    --timeout=180s
+kubectl rollout status deploy/web                    --timeout=300s
+
+# ES init Job (PUTs ILM policy + index template)
+kubectl wait --for=condition=complete job/elasticsearch-init --timeout=180s
 ```
 
 Total cold-start time on a clean Docker is ~6–10 min, dominated by the Elasticsearch image pull (~1 GB).
 
-> **Expected during bootstrap:** `jaeger` will CrashLoopBackOff a few times before Elasticsearch is Ready — Jaeger's `SPAN_STORAGE_TYPE=elasticsearch` requires ES to be reachable on startup. Once ES is Ready, Jaeger recovers automatically. 1–4 restarts is normal.
+> **Expected during bootstrap:** `jaeger` and `elasticsearch-exporter` will CrashLoopBackOff a few times before Elasticsearch is Ready — both depend on it. Self-heal once ES is up. 1–4 restarts is normal.
 
 Final state:
 
 ```bash
 kubectl get pods
-# all 7 pods should be 1/1 Running
+# All workloads should be 1/1 Running (or Completed for the init Job)
+bash tests/monitoring/bash/smoke.sh   # confirms each component end-to-end
 ```
 
 ---
@@ -288,16 +319,25 @@ k8s/
 ├── kind-config.yaml              # kind cluster (port mappings 30001, 30002)
 ├── kustomization.yaml            # entrypoint for `kubectl apply -k`
 ├── base/
-│   ├── secrets.yaml              # postgres-user, postgres-password, database-url
-│   ├── configmaps.yaml           # app-config, prometheus-config, fluentd-config
-│   └── grafana-provisioning/     # datasources + dashboards (mounted via generated CMs)
+│   ├── secrets.yaml              # postgres-user, postgres-password, database-url, secret-key
+│   ├── configmaps.yaml           # app-config (incl. SYSTEM_TEST_ENABLED), prometheus-config (k8s SD), fluentd-config (CRI parser)
+│   └── grafana-provisioning/     # datasources + 3 dashboards (mounted via generated CMs)
 ├── app/
 │   ├── db.yaml                   # Postgres StatefulSet + headless Service
-│   └── web.yaml                  # web Deployment + NodePort
+│   └── web.yaml                  # web Deployment + NodePort, downward-API env, prometheus.io/* annotations
 └── monitoring/
-    ├── elasticsearch.yaml
+    ├── prometheus.yaml           # StatefulSet + ServiceAccount/ClusterRole for k8s SD
+    ├── prometheus-rules.yaml     # ConfigMap: 8 starter alert rules
+    ├── alertmanager.yaml         # Deployment + Service + log-only receiver
+    ├── grafana.yaml              # StatefulSet, NodePort 30002
+    ├── jaeger.yaml               # all-in-one, ES backend, admin metrics 14269
+    ├── elasticsearch.yaml        # 1g heap, watermarks, probes tuned for Docker pause
+    ├── elasticsearch-init.yaml   # Job: PUT ILM policy + index template
     ├── fluentd.yaml              # DaemonSet tailing /var/log/containers/*_default_*.log
-    ├── grafana.yaml
-    ├── jaeger.yaml               # ES backend
-    └── prometheus.yaml
+    ├── node-exporter.yaml        # DaemonSet
+    ├── kube-state-metrics.yaml   # Deployment + RBAC
+    ├── postgres-exporter.yaml    # Deployment, libpq DSN from app-secrets
+    └── elasticsearch-exporter.yaml
 ```
+
+Mirror configs for the docker-compose path live under `monitoring/` at repo root (kept in sync; less actively used).

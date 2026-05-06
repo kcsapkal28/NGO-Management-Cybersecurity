@@ -1,92 +1,110 @@
 # NGO Management Platform
 
-A robust, modular Non-Governmental Organization (NGO) management platform built with Python and Flask. This platform enables organizations to manage fundraising campaigns, track donors natively, and process simulated donations.
+A donation-tracking web app for an NGO ("Hope Foundation") with a fully-instrumented observability stack: Prometheus + Grafana + Jaeger + Fluentd + Elasticsearch + Alertmanager, all on Kubernetes.
+
+## Dashboards
+
+| App Overview | Infrastructure | Logs & Traces |
+|---|---|---|
+| ![App Overview](docs/screenshots/01-app-overview.png) | ![Infrastructure](docs/screenshots/02-infrastructure.png) | ![Logs & Traces](docs/screenshots/03-logs-traces.png) |
+
+A 30-second walkthrough demo (firing a `/system-test/panic`, watching the 5xx panel react, drilling into the trace in Jaeger) is on the LinkedIn post. To reproduce locally, run `bash docs/screenshots/demo-driver.sh` after the cluster is up.
 
 ## ✨ Features
 
-- **Role-Based Access**: Distinct capabilities for Public Users, Authenticated Donors, and Administrators.
-- **Campaign Management**: Admins can create and close fundraising campaigns. Campaigns automatically close upon reaching 100% of their funding goal.
-- **Donor Tracking**: Aggregates all donors, including guest checkouts, displaying lifetime contribution metrics.
-- **API Simulation**: Built-in JSON API to process frontend payments asynchronously.
-- **Data Population**: One-click dummy data generator for development and testing.
+- **Role-based access**: public users, authenticated donors, administrators.
+- **Campaign management**: admins create/close campaigns; auto-close when goal is hit.
+- **Donor tracking**: aggregates per-email donors (registered + guest) with lifetime totals.
+- **JSON donation API** with rate limiting and CSRF protection.
+- **Faker-driven dummy data** for development.
+- **End-to-end observability**: every request emits a metric + trace + structured log, all correlated by `otelTraceID`.
+- **Fault-injection toolkit** (`/system-test/*`) — admin-only load/error/log/memory injectors for exercising dashboards and alerts.
 
-## 🚀 Getting Started
+## 🚀 Getting Started (Kubernetes — recommended)
 
-### Prerequisites
-- Docker and Docker Compose installed.
+```bash
+# 1. Create cluster
+kind create cluster --name kind --config k8s/kind-config.yaml
 
-### Installation & Setup
+# 2. Build + load images
+docker build -t ngo-web-app:latest .
+docker build -t ngo-fluentd:latest ./monitoring/fluentd
+kind load docker-image ngo-web-app:latest --name kind
+kind load docker-image ngo-fluentd:latest --name kind
 
-1. **Clone the repository:**
-   ```bash
-   git clone <repository_url>
-   cd Cybersecurity-NGO-Management
-   ```
+# 3. Apply everything
+kubectl apply -k k8s/
 
-2. **Run with Docker (Recommended):**
-   The entire stack (App, Postgres, Prometheus, Grafana, Jaeger, ELK) is containerized.
-   ```bash
-   docker-compose up -d --build
-   ```
-   *The application will be accessible at `http://localhost:5001/`*
+# 4. Verify
+bash tests/monitoring/bash/smoke.sh
+```
 
-3. **Initialize Data:**
-   Visit `http://localhost:5001/admin/generate_dummy_data` to populate the database with test data.
+Full setup guide with troubleshooting, teardown, and per-step verification: see [SETUP.md](SETUP.md).
 
-**Admin Setup Note**: The very first user to sign up on the platform is automatically granted Administrator privileges.
+### docker-compose (alternative)
 
----
+```bash
+docker-compose up -d --build
+```
+
+App at `http://localhost:5001`. Configs are kept in sync with the K8s path.
+
+## 👤 Becoming an admin
+
+The first user is **not** automatically an admin. Sign up via `/auth`, then:
+```bash
+kubectl exec deploy/web -- flask promote-admin you@example.com
+```
 
 ## 🛠 Observability Stack
 
-The platform includes a pre-configured observability stack accessible at the following ports:
-- **Grafana**: `http://localhost:3000` (User: `admin`, Pass: `admin`)
-- **Prometheus**: `http://localhost:9090`
-- **Jaeger (Tracing)**: `http://localhost:16686`
-- **Elasticsearch**: `http://localhost:9200`
+| Service | URL (K8s) | Purpose |
+|---|---|---|
+| App | http://localhost:30001 | Flask UI |
+| System-test panel | http://localhost:30001/system-test/ | Admin fault-injection (admin-gated) |
+| Grafana | http://localhost:30002 | 3 dashboards: App / Infra / Logs+Traces |
+| Prometheus | port-forward 9090 | metrics + alert rules |
+| Jaeger | port-forward 16686 | distributed traces |
+| Elasticsearch | port-forward 9200 | log + trace storage |
+| Alertmanager | port-forward 9093 | alert routing |
 
-For a detailed breakdown of the system design, port mapping, and troubleshooting, refer to the [Architecture & Operations Guide](System-Reports/Architecture-Guide.md).
+## 🛣 Routes (summary)
 
----
+Public:
+- `GET /`, `/about`, `/blogs`
+
+Auth (Flask-WTF CSRF + Flask-Limiter):
+- `GET /auth`, `POST /signup`, `POST /login`, `GET /logout`
+
+Donor:
+- `GET /campaigns`, `GET /donate`, `POST /api/process_payment`, `GET /dashboard`
+
+Admin (require `is_admin`):
+- `GET /admin`, `GET/POST /admin/campaigns`, `POST /admin/campaigns/<id>/close`
+- `GET /admin/donors`, `GET /admin/transactions`
+- `POST /admin/generate_dummy_data`
+
+System-test (admin + `SYSTEM_TEST_ENABLED=true`, gated by `BoundedSemaphore`):
+- `/system-test/{traffic,error,warning,slow,logs,simulate}`
+- `/system-test/{load,db,db-slow,trace-deep,log-storm,memory-leak,panic,donation-burst,healthcheck-deep}`
+- `/system-test/` — HTML control panel
+
+Full endpoint reference with parameters, rate limits, and observability metadata: [PROJECT-OVERVIEW.md](System-Reports/PROJECT-OVERVIEW.md).
+
+## 🧪 Testing
+
+```bash
+cd tests/monitoring
+make install     # installs deps into the project venv
+make smoke       # ~10s, 18 assertions
+make full        # ~15s, 62 assertions across metrics/logs/traces/alerts/dashboards
+```
+
+For log tests, set `ADMIN_EMAIL`/`ADMIN_PASSWORD`. See `tests/monitoring/README.md`.
 
 ## 📚 Documentation
 
-The application relies on three core Database Models defined in `models.py`:
-
-1. **User**: Represents registered accounts. Contains `username`, `email`, password hashes, and a boolean `is_admin` flag.
-2. **Campaign**: Represents a fundraising initiative. Contains a `goal_amount`, `raised_amount`, and an `is_active` boolean state.
-3. **Donation**: Represents a financial transaction. Links to a `User` (nullable for guests) and a `Campaign`. It tracks the `amount`, `payment_method`, and generates a unique `transaction_id`.
-
-**Modularity**: The application logic is decoupled into specific Blueprints/route files located in the `routes/` directory, making it highly maintainable and scalable.
-
----
-
-## 🛣 Route Definitions
-
-Below is a comprehensive list of all application routes and their purposes:
-
-### Public Routes (`routes/public.py`)
-- `GET /` : Home page displaying active campaigns.
-- `GET /about` : Information about the NGO (Mission, Vision, History, Team).
-- `GET /blogs` : Displays dynamically generated articles related to the NGO's mission.
-
-### Authentication Routes (`routes/auth.py`)
-- `GET /auth` : Renders the login and registration modal/page.
-- `POST /signup` : Creates a new `User` account. Safely handles duplicates.
-- `POST /login` : Authenticates a user and establishes a session.
-- `GET /logout` : Clears the current session.
-
-### Donor Routes (`routes/donor.py`)
-- `GET /campaigns` : Displays all currently active fundraising campaigns.
-- `GET /donate` : Checkout page. Users select a campaign and input payment details.
-- `POST /api/process_payment` : JSON API endpoint. Processes the donation, updates the campaign's raised amount, auto-closes the campaign if the goal is met, and creates a `Donation` record.
-- `GET /dashboard` : *(Login Required)* Personal dashboard for registered donors to view their past donations.
-
-### Admin Routes (`routes/admin.py`)
-*(All routes below require Administrator privileges)*
-- `GET /admin` : The central dashboard showing financial analytics and recent transactions.
-- `GET/POST /admin/campaigns` : View all paginated campaigns or submit a form to create a new one.
-- `GET /admin/campaigns/<id>/close` : Manually marks a campaign's `is_active` status as false.
-- `GET /admin/donors` : Views all unique donors (aggregated by email, including guests) and their lifetime totals.
-- `GET /admin/transactions` : Views a paginated list of all individual `Donation` records.
-- `GET /admin/generate_dummy_data` : Development tool that bulk inserts users, campaigns, and transactions using the `Faker` library.
+- [`SETUP.md`](SETUP.md) — full step-by-step bring-up, troubleshooting, teardown
+- [`System-Reports/PROJECT-OVERVIEW.md`](System-Reports/PROJECT-OVERVIEW.md) — canonical architecture + endpoint reference
+- [`System-Reports/K8s-User-Guide.md`](System-Reports/K8s-User-Guide.md) — operator runbook
+- [`System-Reports/Monitoring-Improvement-Plan.md`](System-Reports/Monitoring-Improvement-Plan.md) — historical improvement plan (all phases shipped)

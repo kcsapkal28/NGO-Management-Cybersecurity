@@ -1,5 +1,22 @@
 # Monitoring Improvement Plan
 
+> **Status: ✅ Complete (2026-05-06).** All phases shipped. Test suite went from 0 → 62 passing assertions across metrics/logs/traces/alerts/dashboards.
+>
+> | Phase | Status | Highlights |
+> |---|---|---|
+> | §5 / Phase 5 — Test module | ✅ | `tests/monitoring/` with pytest + bash, autodiscovers backends via port-forward |
+> | §4 / Phase 4 — System-test expansion | ✅ | 14 fault-injection endpoints, kill-switch, semaphore, HTML control panel |
+> | §1.1 — App instrumentation | ✅ | `observability.py`, log↔trace correlation, 5 custom business metrics |
+> | §1.2 — Infra exporters | ✅ | node-exporter, kube-state-metrics, postgres-exporter, ES exporter, Jaeger metrics |
+> | §1.3 — Prometheus K8s SD + RBAC | ✅ | annotation-driven scrape; static target list retired |
+> | §1.4 — Alerting | ✅ | Alertmanager + 8 starter rules (log-only receiver, swap when destination chosen) |
+> | §2 — Grafana dashboards | ✅ | 3 focused dashboards (App / Infra / Logs+Traces); old super-dashboard retired |
+> | §3 — ES hardening | ✅ | Index template, ILM (14d delete), 1g heap, watermarks, pod_name extractor |
+>
+> Original plan kept below as historical record.
+
+---
+
 Scope: Flask app + Prometheus + Grafana + Jaeger + Fluentd + Elasticsearch deployed on Kind/Kubernetes (`k8s/monitoring/*`). This plan upgrades each layer and adds a comprehensive testing module that validates the end-to-end pipeline.
 
 ---
@@ -273,7 +290,7 @@ A suggested order so each phase compounds:
 
 ## Open questions for you
 
-- Single-node ES forever, or do you want a multi-node setup once we're off Kind?
-- Alertmanager destination — Slack webhook, email, or just stdout for now?
-- Do you want the system-test module behind a feature flag, or admin-only is enough?
-- Postgres exporter as sidecar to `db` pod, or standalone Deployment?
+- Single-node ES forever, or do you want a multi-node setup once we're off Kind? -Yes 
+- Alertmanager destination — Slack webhook, email, or just stdout for now? - Slack Webhook 
+- Do you want the system-test module behind a feature flag, or admin-only is enough?- Yes
+- Postgres exporter as sidecar to `db` pod, or standalone Deployment?-Sidecar
