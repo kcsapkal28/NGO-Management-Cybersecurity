@@ -8,7 +8,6 @@ A donation-tracking web app for an NGO ("Hope Foundation") with a fully-instrume
 |---|---|---|
 | ![App Overview](docs/screenshots/01-app-overview.png) | ![Infrastructure](docs/screenshots/02-infrastructure.png) | ![Logs & Traces](docs/screenshots/03-logs-traces.png) |
 
-A 30-second walkthrough demo (firing a `/system-test/panic`, watching the 5xx panel react, drilling into the trace in Jaeger) is on the LinkedIn post. To reproduce locally, run `bash docs/screenshots/demo-driver.sh` after the cluster is up.
 
 ## ✨ Features
 
