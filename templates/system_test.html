@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2 class="m-0">System Test — Monitoring Fault Injection</h2>
+  <span class="badge bg-warning text-dark">admin only</span>
+</div>
+<p class="text-muted">
+  Drives every signal the dashboards depend on. Each button calls an admin-only
+  endpoint; results stream into the panel below. <strong>Heavy operations</strong> are
+  capped at 2 concurrent runs across the worker.
+</p>
+
+<div class="row g-3">
+  <!-- Logging -->
+  <div class="col-md-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-body">
+        <h5 class="card-title">Logging</h5>
+        <div class="d-flex flex-wrap gap-2">
+          <button class="btn btn-outline-secondary" data-st-url="/system-test/logs">All log levels</button>
+          <button class="btn btn-outline-warning"  data-st-url="/system-test/warning">Warning</button>
+          <button class="btn btn-outline-danger"   data-st-url="/system-test/error">Error</button>
+          <button class="btn btn-outline-primary"  data-st-url="/system-test/log-storm?n=200&level=info">Log storm × 200</button>
+          <button class="btn btn-outline-primary"  data-st-url="/system-test/log-storm?n=1000&level=error">Log storm × 1000 (error)</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tracing -->
+  <div class="col-md-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-body">
+        <h5 class="card-title">Tracing</h5>
+        <div class="d-flex flex-wrap gap-2">
+          <button class="btn btn-outline-info"   data-st-url="/system-test/trace-deep?depth=5">Deep span (5)</button>
+          <button class="btn btn-outline-info"   data-st-url="/system-test/trace-deep?depth=10">Deep span (10)</button>
+          <button class="btn btn-outline-secondary" data-st-url="/system-test/traffic">Random traffic</button>
+          <button class="btn btn-outline-secondary" data-st-url="/system-test/slow">Slow request</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Database -->
+  <div class="col-md-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-body">
+        <h5 class="card-title">Database</h5>
+        <div class="d-flex flex-wrap gap-2">
+          <button class="btn btn-outline-success" data-st-url="/system-test/db?n=50">DB queries × 50</button>
+          <button class="btn btn-outline-warning" data-st-url="/system-test/db-slow?seconds=2">Slow query (2s)</button>
+          <button class="btn btn-outline-success" data-st-url="/system-test/donation-burst?n=20" data-method="POST">Donation burst × 20</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Resource pressure -->
+  <div class="col-md-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-body">
+        <h5 class="card-title">Resource Pressure</h5>
+        <div class="d-flex flex-wrap gap-2">
+          <button class="btn btn-outline-warning" data-st-url="/system-test/load?rps=20&duration=30">Load 20rps × 30s</button>
+          <button class="btn btn-outline-warning" data-st-url="/system-test/load?rps=50&duration=60">Load 50rps × 60s</button>
+          <button class="btn btn-outline-danger"  data-st-url="/system-test/memory-leak?mb=50&hold=10">Mem ballast 50MB × 10s</button>
+          <button class="btn btn-outline-danger"  data-st-url="/system-test/panic">Panic (500)</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Health -->
+  <div class="col-12">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title">Backend Health</h5>
+        <button class="btn btn-outline-primary" data-st-url="/system-test/healthcheck-deep">Probe ES / Prom / Jaeger / self</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card mt-4 shadow-sm">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <strong>Output</strong>
+    <button id="st-clear" class="btn btn-sm btn-outline-secondary">Clear</button>
+  </div>
+  <pre id="st-output" class="m-0 p-3" style="max-height: 360px; overflow:auto; background:#0e1116; color:#d2dae2; font-size:.85rem;"></pre>
+</div>
+
+<script>
+(function () {
+  const out = document.getElementById('st-output');
+  const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+
+  function append(line) {
+    const ts = new Date().toISOString().split('T')[1].replace('Z','');
+    out.textContent += `[${ts}] ${line}\n`;
+    out.scrollTop = out.scrollHeight;
+  }
+
+  document.querySelectorAll('button[data-st-url]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const url = btn.dataset.stUrl;
+      const method = (btn.dataset.method || 'GET').toUpperCase();
+      append(`→ ${method} ${url}`);
+      btn.disabled = true;
+      try {
+        const headers = {};
+        if (method !== 'GET') headers['X-CSRFToken'] = csrfToken;
+        const r = await fetch(url, { method, headers, credentials: 'same-origin' });
+        const text = await r.text();
+        let body = text;
+        try { body = JSON.stringify(JSON.parse(text)); } catch (e) {}
+        append(`← ${r.status} ${body.slice(0, 600)}${body.length > 600 ? ' …' : ''}`);
+      } catch (e) {
+        append(`✗ ${e}`);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  });
+
+  document.getElementById('st-clear').addEventListener('click', () => { out.textContent = ''; });
+})();
+</script>
+{% endblock %}

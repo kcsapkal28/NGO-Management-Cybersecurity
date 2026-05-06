@@ -1,60 +1,27 @@
 import os
-import logging
+
 from flask import Flask
+from werkzeug.middleware.proxy_fix import ProxyFix
+from dotenv import load_dotenv
+
 from extensions import csrf, limiter
 from models import db
-from pythonjsonlogger import jsonlogger
+import observability
 
-# Monitoring Imports
-from prometheus_flask_exporter import PrometheusMetrics
-from opentelemetry import trace
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-from opentelemetry.instrumentation.flask import FlaskInstrumentor
-from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
-from opentelemetry.sdk.resources import Resource, SERVICE_NAME
+load_dotenv()
 
 app = Flask(__name__)
 
-import sys
-
-# --- Setup Structured Logging ---
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-logHandler = logging.StreamHandler(sys.stdout)
-formatter = jsonlogger.JsonFormatter(
-    '%(asctime)s %(levelname)s %(name)s %(message)s'
-)
-logHandler.setFormatter(formatter)
-logger.addHandler(logHandler)
-# Ensure werkzeug logger also uses JSON if possible, or at least doesn't duplicate
-logging.getLogger('werkzeug').setLevel(logging.WARNING)
-
-# --- Setup Tracing ---
-resource = Resource(attributes={
-    SERVICE_NAME: "ngo-management-app"
-})
-trace.set_tracer_provider(TracerProvider(resource=resource))
-jaeger_host = os.environ.get('JAEGER_HOST', 'jaeger')
-otlp_exporter = OTLPSpanExporter(
-    endpoint=f"http://{jaeger_host}:4317",
-    insecure=True
-)
-trace.get_tracer_provider().add_span_processor(
-    BatchSpanProcessor(otlp_exporter)
-)
-
-# Instrument Flask
-FlaskInstrumentor().instrument_app(app)
-
-# --- Setup Metrics ---
-metrics = PrometheusMetrics(app)
-metrics.info('app_info', 'Application info', version='1.0.0')
-
-# --- Configuration ---
-from dotenv import load_dotenv
-load_dotenv()
+# Trust X-Forwarded-* from one upstream hop (ngrok / kubernetes ingress /
+# any reverse proxy). Without this:
+#   - request.scheme is "http" while Referer is "https" → Flask-WTF rejects
+#     POSTs with 400 BAD REQUEST due to WTF_CSRF_SSL_STRICT (the donation
+#     form failure surfaces as "An unexpected error occurred" in the JS)
+#   - url_for(..., _external=True) builds http:// URLs even when the user
+#     came in via https://
+# Increase x_for / x_host counts if you stack multiple proxies (e.g. CDN
+# in front of an ingress).
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
 secret_key = os.environ.get('SECRET_KEY')
 if not secret_key:
@@ -75,29 +42,35 @@ app.config.update(
 base_dir = os.path.abspath(os.path.dirname(__file__))
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
     'DATABASE_URL',
-    'sqlite:///' + os.path.join(base_dir, 'ngo_database.db')
+    'sqlite:///' + os.path.join(base_dir, 'ngo_database.db'),
 )
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+# pool_pre_ping issues a cheap SELECT 1 before checking out a connection.
+# Without it, a Postgres restart leaves dead sockets in the pool and the
+# next ~10 requests fail with "server closed the connection unexpectedly"
+# until those slots cycle out. pool_recycle caps connection age at 1h.
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_pre_ping': True,
+    'pool_recycle': 3600,
+}
 
 csrf.init_app(app)
 limiter.init_app(app)
-
 db.init_app(app)
 
 with app.app_context():
     db.create_all()
-    SQLAlchemyInstrumentor().instrument(engine=db.engine)
+    observability.setup(app, db_engine=db.engine)
 
-
-
-
-# --- Register Routes ---
+# Routes are registered after observability so the request_id hook runs
+# before any blueprint-level before_request handlers (e.g. system_test gate).
 from routes import register_all_routes
 register_all_routes(app)
 
 # --- CLI: promote-admin ---
 import click
 from models import User
+
 
 @app.cli.command("promote-admin")
 @click.argument("email")
@@ -110,6 +83,7 @@ def promote_admin(email):
     user.is_admin = True
     db.session.commit()
     click.echo(f"Promoted {user.email} to admin.")
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001, debug=False)

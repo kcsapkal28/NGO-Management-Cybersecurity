@@ -32,6 +32,7 @@
         {% if session.get('user_id') %}
             {% if session.get('is_admin') %}
                 <li class="nav-item"><a class="nav-link" href="{{ url_for('admin_dashboard') }}">Admin Panel</a></li>
+                <li class="nav-item"><a class="nav-link" href="/system-test/">System Test</a></li>
             {% else %}
                 <li class="nav-item"><a class="nav-link" href="{{ url_for('donor_dashboard') }}">My Dashboard</a></li>
             {% endif %}

@@ -3,6 +3,9 @@ from flask import render_template, request, redirect, url_for, flash, session
 from werkzeug.security import generate_password_hash, check_password_hash
 from extensions import limiter
 from models import db, User
+from observability import get_tracer, record_auth_attempt
+
+_tracer = get_tracer()
 
 MIN_PASSWORD_LEN = 8
 
@@ -31,55 +34,82 @@ def init_auth_routes(app):
     @app.route('/signup', methods=['POST'])
     @limiter.limit("5 per minute; 20 per hour")
     def signup():
-        username = request.form.get('username', '').strip()
-        email = request.form.get('email', '').strip().lower()
-        password = request.form.get('password', '')
-        target = _safe_redirect_target()
+        with _tracer.start_as_current_span("auth.register") as span:
+            username = request.form.get('username', '').strip()
+            email = request.form.get('email', '').strip().lower()
+            password = request.form.get('password', '')
+            target = _safe_redirect_target()
+            span.set_attribute("auth.email", email)
 
-        if not username or not email or not password:
-            flash('All fields are required.', 'danger')
+            if not username or not email or not password:
+                span.set_attribute("auth.result", "missing_fields")
+                record_auth_attempt("missing_fields")
+                flash('All fields are required.', 'danger')
+                return redirect(target)
+            if len(password) < MIN_PASSWORD_LEN:
+                span.set_attribute("auth.result", "weak_password")
+                record_auth_attempt("invalid")
+                flash(f'Password must be at least {MIN_PASSWORD_LEN} characters.', 'danger')
+                return redirect(target)
+
+            if User.query.filter((User.username == username) | (User.email == email)).first():
+                span.set_attribute("auth.result", "duplicate")
+                record_auth_attempt("invalid")
+                flash('If that account is available you will receive a confirmation email.', 'info')
+                return redirect(target)
+
+            new_user = User(username=username, email=email, password=generate_password_hash(password), is_admin=False)
+            db.session.add(new_user)
+            try:
+                db.session.commit()
+                span.set_attribute("auth.result", "registered")
+                record_auth_attempt("success")
+                flash('Account created! Please log in.', 'success')
+            except IntegrityError:
+                db.session.rollback()
+                span.set_attribute("auth.result", "db_error")
+                record_auth_attempt("invalid")
+                flash('Database error during registration.', 'danger')
+
             return redirect(target)
-        if len(password) < MIN_PASSWORD_LEN:
-            flash(f'Password must be at least {MIN_PASSWORD_LEN} characters.', 'danger')
-            return redirect(target)
-
-        if User.query.filter((User.username == username) | (User.email == email)).first():
-            flash('If that account is available you will receive a confirmation email.', 'info')
-            return redirect(target)
-
-        new_user = User(username=username, email=email, password=generate_password_hash(password), is_admin=False)
-        db.session.add(new_user)
-        try:
-            db.session.commit()
-            flash('Account created! Please log in.', 'success')
-        except IntegrityError:
-            db.session.rollback()
-            flash('Database error during registration.', 'danger')
-
-        return redirect(target)
 
     @app.route('/login', methods=['POST'])
     @limiter.limit("10 per minute; 100 per hour")
     def login():
-        email = request.form.get('email', '').strip().lower()
-        password = request.form.get('password', '')
-        target = _safe_redirect_target()
+        with _tracer.start_as_current_span("auth.login") as span:
+            email = request.form.get('email', '').strip().lower()
+            password = request.form.get('password', '')
+            target = _safe_redirect_target()
+            span.set_attribute("auth.email", email)
 
-        if not email or not password:
-            flash('Email and password are required.', 'danger')
+            if not email or not password:
+                span.set_attribute("auth.result", "missing_fields")
+                record_auth_attempt("missing_fields")
+                flash('Email and password are required.', 'danger')
+                return redirect(target)
+
+            user = User.query.filter_by(email=email).first()
+            if user and check_password_hash(user.password, password):
+                # Rotate session contents to prevent fixation, but preserve
+                # the Flask-WTF CSRF nonce so any other tab that already
+                # rendered a form before login can still submit afterwards.
+                csrf_nonce = session.get('csrf_token')
+                session.clear()
+                if csrf_nonce:
+                    session['csrf_token'] = csrf_nonce
+                session['user_id'] = user.id
+                session['username'] = user.username
+                session['is_admin'] = user.is_admin
+                span.set_attribute("auth.result", "success")
+                span.set_attribute("auth.user_id", user.id)
+                record_auth_attempt("success")
+                flash(f'Welcome back, {user.username}!', 'success')
+                return redirect(url_for('admin_dashboard' if user.is_admin else 'donor_dashboard'))
+
+            span.set_attribute("auth.result", "invalid")
+            record_auth_attempt("invalid")
+            flash('Invalid email or password.', 'danger')
             return redirect(target)
-
-        user = User.query.filter_by(email=email).first()
-        if user and check_password_hash(user.password, password):
-            session.clear()
-            session['user_id'] = user.id
-            session['username'] = user.username
-            session['is_admin'] = user.is_admin
-            flash(f'Welcome back, {user.username}!', 'success')
-            return redirect(url_for('admin_dashboard' if user.is_admin else 'donor_dashboard'))
-
-        flash('Invalid email or password.', 'danger')
-        return redirect(target)
 
     @app.route('/logout')
     def logout():

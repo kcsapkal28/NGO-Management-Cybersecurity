@@ -86,9 +86,17 @@ document.getElementById('donationForm').addEventListener('submit', function(e) {
         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
         body: JSON.stringify(data)
     })
-    .then(response => {
-        if (!response.ok) throw new Error('Network response was not ok');
-        return response.json();
+    .then(async response => {
+        // Read body up-front so we can show the real server error on non-2xx.
+        const text = await response.text();
+        let body;
+        try { body = JSON.parse(text); } catch (e) { body = { message: text || response.statusText }; }
+        if (!response.ok) {
+            const err = new Error(body.message || `HTTP ${response.status}`);
+            err.status = response.status;
+            throw err;
+        }
+        return body;
     })
     .then(result => {
         if(result.success) {
@@ -97,7 +105,7 @@ document.getElementById('donationForm').addEventListener('submit', function(e) {
             document.getElementById('r_amount').innerText = '$' + result.receipt.amount;
             document.getElementById('r_type').innerText = result.receipt.type;
             document.getElementById('r_txid').innerText = result.receipt.txid;
-            
+
             // Show Modal using Bootstrap JS
             var myModal = new bootstrap.Modal(document.getElementById('receiptModal'));
             myModal.show();
@@ -107,7 +115,9 @@ document.getElementById('donationForm').addEventListener('submit', function(e) {
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('An unexpected error occurred. Please try again.');
+        // Show the real backend message instead of swallowing it.
+        const detail = error.status ? ` (HTTP ${error.status})` : '';
+        alert(`Payment failed${detail}: ${error.message}`);
     })
     .finally(() => {
         document.getElementById('submitBtn').innerText = "Process Secure Payment";
