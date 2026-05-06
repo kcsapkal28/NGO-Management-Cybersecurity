@@ -1,0 +1,5 @@
+pytest>=7.4
+pytest-timeout>=2.2
+requests>=2.31
+PyYAML>=6.0
+tenacity>=8.2

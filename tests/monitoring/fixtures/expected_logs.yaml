@@ -1,0 +1,36 @@
+# Elasticsearch queries that must return >=1 hit after the trigger fires.
+# Each entry has:
+#   trigger: HTTP path on the web app to call (admin-authed) BEFORE the query
+#   query:   ES query_string DSL
+#   min_hits: lower bound for result count
+
+cases:
+  - name: info_log_present
+    trigger: "/system-test/logs"
+    query: 'levelname:INFO'
+    min_hits: 1
+
+  - name: warning_log_present
+    trigger: "/system-test/warning"
+    query: 'levelname:WARNING'
+    min_hits: 1
+
+  - name: error_log_present
+    trigger: "/system-test/error"
+    query: 'levelname:ERROR'
+    min_hits: 1
+
+  - name: critical_log_present
+    trigger: "/system-test/logs"
+    query: 'levelname:CRITICAL'
+    min_hits: 1
+
+  - name: log_storm_indexed
+    trigger: "/system-test/log-storm?n=20&level=info"
+    query: 'message:"log storm event"'
+    min_hits: 20
+
+  - name: db_burst_logged
+    trigger: "/system-test/db?n=10"
+    query: 'message:"db exercise complete"'
+    min_hits: 1

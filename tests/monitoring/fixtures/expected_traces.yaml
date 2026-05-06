@@ -1,0 +1,13 @@
+# Jaeger services and operations expected to exist after some traffic.
+# 'service' must be registered in Jaeger; 'operations' is a list each of
+# which must appear at least once.
+
+services:
+  - name: ngo-management-app
+    operations:
+      # FlaskInstrumentor names spans by route rule. '/' is the public landing.
+      - "/"
+      - "/system-test/traffic"
+      - "/system-test/error"
+      - "/system-test/db"
+      - "/system-test/trace-deep"

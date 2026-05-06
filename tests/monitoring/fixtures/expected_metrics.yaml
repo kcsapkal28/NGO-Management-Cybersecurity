@@ -1,0 +1,49 @@
+# Metrics that MUST be present in Prometheus after a normal deploy.
+# Each entry is a PromQL expression; assertion is "result is non-empty".
+# Add to this list as new exporters/business metrics come online.
+
+required:
+  # prometheus-flask-exporter (Flask app)
+  - expr: 'flask_http_request_total'
+    why: "Flask request counter — proves the app is being scraped"
+  - expr: 'flask_http_request_duration_seconds_bucket'
+    why: "Latency histogram — needed for P95/P99 panels"
+  - expr: 'flask_exporter_info'
+    why: "Static app_info gauge — confirms metric registry initialized"
+
+  # process metrics from the Python client
+  - expr: 'process_resident_memory_bytes{job="flask_app"}'
+    why: "Memory panel data source"
+  - expr: 'process_cpu_seconds_total{job="flask_app"}'
+    why: "CPU panel data source"
+  - expr: 'process_start_time_seconds{job="flask_app"}'
+    why: "Uptime calculation"
+
+  # prometheus self
+  - expr: 'up{job="flask_app"} == 1'
+    why: "Scrape target healthy"
+  - expr: 'prometheus_build_info'
+    why: "Prometheus itself reachable"
+
+  # Phase 1.1 — custom business metrics (pre-initialised at zero on app boot)
+  - expr: 'ngo_donations_total'
+    why: "Donation funnel — Phase 1.1"
+  - expr: 'ngo_auth_attempts_total'
+    why: "Auth observability — Phase 1.1"
+  - expr: 'ngo_db_pool_in_use'
+    why: "SQLAlchemy pool gauge — Phase 1.1"
+
+  # Phase 1.2 — infra exporters
+  - expr: 'node_cpu_seconds_total'
+    why: "node-exporter — host CPU"
+  - expr: 'kube_pod_info'
+    why: "kube-state-metrics — pod inventory"
+  - expr: 'elasticsearch_cluster_health_status'
+    why: "elasticsearch-exporter — ES cluster color"
+  - expr: 'pg_up'
+    why: "postgres-exporter — DB reachability"
+  - expr: 'jaeger_build_info'
+    why: "Jaeger metrics endpoint scraped"
+
+# Metrics gated on later phases (none currently). Tests for items here xfail.
+phase_1_pending: []

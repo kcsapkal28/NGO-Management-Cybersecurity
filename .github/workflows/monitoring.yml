@@ -1,0 +1,69 @@
+name: monitoring tests
+
+on:
+  push:
+    branches: [main, Kubernetes]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  monitoring:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python test deps
+        run: pip install -r tests/monitoring/requirements.txt
+
+      - name: Set up Kind cluster
+        uses: helm/kind-action@v1
+        with:
+          config: k8s/kind-config.yaml
+          cluster_name: ngo-monitoring
+
+      - name: Build app image into Kind
+        run: |
+          docker build -t ngo-web-app:latest .
+          kind load docker-image ngo-web-app:latest --name ngo-monitoring
+
+      - name: Build fluentd image into Kind
+        run: |
+          docker build -t ngo-fluentd:latest monitoring/fluentd
+          kind load docker-image ngo-fluentd:latest --name ngo-monitoring
+
+      - name: Bootstrap stack
+        run: bash tests/monitoring/bash/bootstrap.sh
+
+      - name: Pipeline connectivity check
+        run: bash tests/monitoring/bash/pipeline-check.sh
+
+      - name: Smoke tests
+        working-directory: tests/monitoring
+        run: pytest -m smoke
+
+      - name: Dashboard panel queries
+        working-directory: tests/monitoring
+        run: pytest test_dashboards.py -m full
+
+      - name: Dump cluster logs on failure
+        if: failure()
+        run: |
+          mkdir -p artifacts
+          kubectl get pods -A > artifacts/pods.txt
+          kubectl describe pods -A > artifacts/describe.txt
+          for p in $(kubectl get pods -o name); do
+            kubectl logs --tail=300 "$p" > "artifacts/${p#pod/}.log" 2>&1 || true
+          done
+
+      - name: Upload artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cluster-logs
+          path: artifacts/
